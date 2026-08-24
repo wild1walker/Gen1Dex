@@ -1,1 +1,207 @@
 # Gen1Dex
+
+The Pokédex, brought up to the rest of the set — with a POKéMON beside every
+entry.
+
+A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
+
+---
+
+## What it does
+
+### A party icon beside every entry
+
+The dex list draws each species' party icon in the margin to the left of its
+row — the same icon the party menu draws, resolved down the same path, so a
+menu-icon mod (`unique_menu_icons`, `new_icons`) shows up here for free.
+
+**A species you have not discovered is a black silhouette.** Its shape is
+there, its colours are not, and it fills back in the moment you see one.
+
+Every discovered POKéMON on screen wears its own species colours — seven
+palettes at once, where the Game Boy could show four.
+
+### Three ways to read the list
+
+**SELECT** cycles the view:
+
+| View | Shows |
+| --- | --- |
+| `POKéDEX` | every dex slot, in order, blanks included |
+| `POKéDEX A-Z` | only what you have seen, sorted by name, dex numbers kept |
+| `POKéDEX CAUGHT` | only what you own, in dex order |
+
+The cursor stays on the same POKéMON wherever it survives the switch, and the
+`SEEN` / `OWN` counts in the footer are the whole dex's in every view — they
+count your Pokédex, not the filter you are looking through it with.
+
+UP on the first row and DOWN on the last wrap to the other end.
+
+### An entry is three pages
+
+**A** moves between them, **B** closes.
+
+1. **DEX** — the sprite, the kind, height and weight, and the Pokédex
+   description. This is the vanilla page, kept.
+2. **STATS** — the five base stats and their **BST**, the types, and what the
+   species evolves into.
+3. **MOVES** — the full movelist: level-up moves first, then TM/HM by machine
+   number, paginated eight rows at a time.
+
+On the DEX page **A** turns the description's own pages first, the way it did
+in the ROM, and only moves on once the text is spent.
+
+On the first two pages **UP/DOWN** opens the previous or next species you have
+seen, wrapping at both ends. On MOVES they page the list.
+
+A move the species gets **STAB** on is marked with a chip in its own type's
+colour, and each type on the STATS page is underlined in its own.
+
+---
+
+## Options
+
+In the mod manager:
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `SPECIES COLOURS` | ON | Every POKéMON in its own colours over a grey ramp. Off restores the vanilla dex brown and asks for no palette zones at all. |
+| `SELECT VIEWS` | ON | SELECT cycles numbered / A-Z / caught. |
+| `UP/DOWN SPECIES` | ON | UP/DOWN on an entry walks the species you have seen. |
+| `LIST WRAPS` | ON | UP on the first row crosses to the last, and back. |
+| `HOLD TO SCROLL` | ON | Hold a direction on the list to keep moving. |
+
+---
+
+## Install
+
+Download `Gen1Dex-<version>.zip` from
+[Releases](https://github.com/wild1walker/Gen1Dex/releases) and install it from
+the game: **MODS → Import mod .zip**.
+
+---
+
+## How it works
+
+Two registered screen replacements and nothing else. `Screens.resolve` prefers
+the screens registry over the builtin module, so a mod-free boot is untouched
+and a factory that throws degrades to the builtin — which is why every entry
+point in `main.lua` is guarded rather than trusted. A Pokédex that fails to
+open is worse than a vanilla one.
+
+- **`PokedexMenu`** is built by the *vanilla* constructor and then re-dressed.
+  That keeps the `DATA` / `CRY` / `AREA` / `QUIT` side menu, the cursor memory
+  and the `QUIT` path exactly as they were: this mod has an opinion about how
+  the list looks and which entries are in it, and none at all about what
+  pressing A on one does.
+- **`DexEntryMenu`** is a screen of its own, because its first page has to be
+  the vanilla page and its other two have to share that page's frame.
+
+### The silhouette is a tint, not a palette
+
+`PartyMenu.drawIcon` never sets a colour of its own — it draws in the
+caller's, and LÖVE multiplies the image by it. So `setColor(0,0,0,1)` takes
+every pixel's RGB to zero and leaves its alpha alone: a silhouette of the exact
+shape the icon draws, for free.
+
+The palette route cannot do this job. A zone of four blacks would blacken a DMG
+icon, but an icon mod's authored full-colour art is re-blit *unshaded* over the
+colourised pass, so it would come back in colour underneath — the one entry you
+have never met would be the only one on screen in full colour. A tint is
+applied at draw time, before any of that, and holds for both kinds of art.
+
+### The geometry is in whole tiles
+
+An SGB palette zone is *addressed* in tiles, so an icon that is not on a tile
+boundary cannot carry one. The icons sit at `x = 8` on a 16-pixel pitch from
+`y = 24`, which is the vanilla list's own row pitch — the icons fit the list
+rather than the list moving to fit the icons.
+
+### The type colours are not palette colours
+
+The SGB pass remaps every pixel to one of four palette entries keyed off its
+**red** channel, so a colour drawn straight onto the screen does not come out as
+itself — GRASS green lands on shade 2 and is painted the palette's dark grey.
+Every type would end up a different grey, which looks like a bug. The type rules
+and STAB chips are marked with `PaletteFX.markTrueColor` instead, so they are
+re-blit with no shader and survive exactly as drawn.
+
+---
+
+## Differences from `useful_dex`
+
+Gen1Dex covers everything
+[useful_dex](https://github.com/ShaneMcGovernIE/useful_dex) does — the stats /
+BST / evolutions page, the full movelist, and the three list views — and the two
+mods take the same two screen ids, so they **conflict** and only one can be
+installed.
+
+What is different here:
+
+- **The Pokédex description is still there.** `useful_dex` replaces the vanilla
+  entry page outright and its description goes with it. Here the vanilla page
+  *is* the first page, and A walks its text before moving on.
+- **Party icons in the list**, blacked out until discovered — the feature this
+  mod exists for.
+- **Framed pages.** A shared header and footer box on all three entry pages, so
+  three pages read as one screen with three faces rather than as three screens.
+- **Type colour survives the palette pass.** `useful_dex` draws its STAB chips
+  as plain colour, which the SGB shade remap turns into an arbitrary grey.
+- **Per-species palette zones** on the list and the entry sprite.
+- **Options**, so every part of it can be turned off.
+
+---
+
+## Known limits
+
+- **`useful_dex` and `pokedex_plus` are declared conflicts.** All three
+  register the same screen ids; the last one loaded would win silently.
+- **A species with several evolutions loses the method labels.** One evolution
+  gets two lines — how, then into what. Two or three (EEVEE) get one line each
+  and just the name: the column is ten glyphs wide, `LEVEL 16 IVYSAUR` is
+  sixteen, and three rows is all that fits. Which POKéMON it becomes is the
+  answer the dex is being asked for; the methods are still written on the
+  stones in your bag.
+- **No stat bars on the STATS page.** A bar wide enough to read costs 24
+  pixels, and taking them from the right column truncates `CHARMELEON`. A
+  number you can compare is worth more than a bar you cannot read.
+- **The list still draws seven rows.** The icons fit the vanilla pitch rather
+  than the list growing to fit them, so the page turns exactly where it always
+  did.
+
+---
+
+## Testing
+
+The suite runs headlessly against a Gen1Recomp checkout, with no ROM: it loads
+the mod through the production `Loader`, merges it into the ROM-free fixture
+dataset, and drives both screens.
+
+```sh
+# from a Gen1Recomp checkout, with this mod at mods/Gen1Dex
+luajit mods/Gen1Dex/tests/gen1dex_test.lua
+```
+
+`GEN1DEX_DIR` overrides where the mod is read from. CI runs the same command on
+every push and pull request (`.github/workflows/test.yml`).
+
+## Releasing
+
+Push to `main` and `.github/workflows/release.yml` packs the mod into an
+installable `.zip` and publishes it as a GitHub Release, once per push.
+
+The version is resolved by the first rule that applies:
+
+1. the `version` input of a manual **Run workflow**,
+2. `[release X.Y.Z]` anywhere in the commit message,
+3. `manifest.json`'s own version, when it is ahead of every existing tag — so
+   **bumping the manifest is the normal way to cut a release**,
+4. otherwise the newest `vX.Y.Z` tag with its patch incremented.
+
+Whichever wins is written into the `manifest.json` inside the archive, so a
+shipped mod never reports a different version than the release it came from.
+The job refuses to clobber an existing tag or release.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
