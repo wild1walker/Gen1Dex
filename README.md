@@ -1,4 +1,12 @@
-# Gen1Dex
+<p align="center">
+  <a href="https://wild1walker.github.io/Gen1Wild/"><img src="docs/banner.png" alt="Gen1Wild" width="400"></a>
+</p>
+
+<h1 align="center">Gen1Dex</h1>
+
+<p align="center">
+  <a href="https://wild1walker.github.io/Gen1Wild/"><img src="docs/lineup.png" alt="Check out my other mods!" width="880"></a>
+</p>
 
 The Pokédex, brought up to the rest of the set — with a POKéMON beside every
 entry.
