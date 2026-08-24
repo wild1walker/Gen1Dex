@@ -575,6 +575,182 @@ do
   T.check(pcall(entry.draw, entry), "and so does one with three of them")
 end
 
+-- ------- LEFT and RIGHT walk the pages
+--
+-- The keys the page turn belongs on: the pages sit beside each other, and a
+-- reader one page too far has to be able to go back.
+
+do
+  local game = fakeGame(SEEN, OWNED)
+  local entry = entryFactory.new(game, "FIXMON_A")
+  T.eq(entry.page, "dex", "an entry opens on the dex page")
+
+  game.press("right"); entry:update(0)
+  T.eq(entry.page, "stats", "RIGHT turns to the stats page")
+  game.press("right"); entry:update(0)
+  T.eq(entry.page, "moves", "RIGHT turns to the movelist")
+  game.press("right"); entry:update(0)
+  T.eq(entry.page, "dex", "and wraps back round")
+
+  game.press("left"); entry:update(0)
+  T.eq(entry.page, "moves", "LEFT wraps the other way")
+  game.press("left"); entry:update(0)
+  T.eq(entry.page, "stats", "and walks back")
+  game.press("left"); entry:update(0)
+  T.eq(entry.page, "dex", "to where it started")
+end
+
+do
+  -- LEFT/RIGHT do not wait for the description the way A does: they are page
+  -- keys, and page three should not cost you reading page one.
+  local game = fakeGame(SEEN, OWNED)
+  local entry = entryFactory.new(game, "FIXMON_A")
+  entry.desc = { { "PAGE ONE" }, { "PAGE TWO" } }
+  entry.descPage = 1
+  game.press("right"); entry:update(0)
+  T.eq(entry.page, "stats", "RIGHT leaves an unread description behind")
+  T.eq(entry.descPage, 1, "without turning it")
+
+  -- and coming back resets it, however you arrive
+  game.press("left"); entry:update(0)
+  T.eq(entry.page, "dex", "LEFT comes back")
+  T.eq(entry.descPage, 1, "with the description at its start")
+end
+
+do
+  -- Arriving at MOVES resets its page whichever key brought you there, so a
+  -- page cannot be entered two ways and be set up differently by one.
+  local game = fakeGame(SEEN, OWNED)
+  local entry = entryFactory.new(game, "FIXMON_A")
+  entry.page = "moves"
+  entry.moves = {}
+  for i = 1, 20 do entry.moves[i] = { text = "ROW " .. i } end
+  entry.movePage = 3
+
+  game.press("left"); entry:update(0)
+  T.eq(entry.page, "stats", "left off the movelist")
+  game.press("right"); entry:update(0)
+  T.eq(entry.page, "moves", "and back onto it")
+  T.eq(entry.movePage, 1, "which opens on its first page again")
+end
+
+do
+  -- On the movelist UP/DOWN page the list and LEFT/RIGHT still change page:
+  -- the two do not collide.
+  local game = fakeGame(SEEN, OWNED)
+  local entry = entryFactory.new(game, "FIXMON_A")
+  entry.page = "moves"
+  entry.moves = {}
+  for i = 1, 20 do entry.moves[i] = { text = "ROW " .. i } end
+  entry.movePage = 1
+
+  game.press("down"); entry:update(0)
+  T.eq(entry.movePage, 2, "DOWN pages the movelist")
+  T.eq(entry.page, "moves", "and stays on the page")
+  game.press("right"); entry:update(0)
+  T.eq(entry.page, "dex", "RIGHT still turns the page from there")
+end
+
+do
+  -- Stepping species keeps the page you were reading: you were on stats, you
+  -- still are, and the only thing that changed is whose stats they are.
+  local game = fakeGame(SEEN, OWNED)
+  local entry = entryFactory.new(game, "FIXMON_A")
+  entry.page = "stats"
+  game.press("down"); entry:update(0)
+  T.eq(entry.species, "FIXMON_B", "DOWN stepped the species")
+  T.eq(entry.page, "stats", "and left the page where it was")
+end
+
+-- ------- the sprite well: nothing runs into the description
+--
+-- A Gen 1 front sprite is at most 56x56 and the well is exactly that, but
+-- nothing guarantees it -- HGSS_SPRITES, Gold_Silver_Sprites and the Crystal
+-- frames ship whatever their authors drew.  A 64-pixel one drawn at 1:1 from
+-- the top of the well ran eight pixels past the bottom of it, through the
+-- rule at y=82 and into the description text under it.
+--
+-- C.fit is the guard, and it is asserted directly rather than through a draw,
+-- because "did those pixels overlap" is not a question a headless draw can
+-- answer.
+
+do
+  local C = assert(loadfile(DIR .. "/chrome.lua"))()({})
+  local WELL_X, WELL_Y, WELL = 8, 24, 56
+  local DESC_RULE_Y = 82
+
+  local function fits(w, h, label)
+    local x, y, scale, dw, dh = C.fit(w, h, WELL_X, WELL_Y, WELL, WELL)
+    T.check(y >= WELL_Y, label .. ": starts inside the well")
+    T.check(y + dh <= WELL_Y + WELL, label .. ": ends inside the well")
+    T.check(y + dh <= DESC_RULE_Y, label .. ": clears the description rule")
+    T.check(x >= WELL_X and x + dw <= WELL_X + WELL,
+            label .. ": inside the well horizontally")
+    T.check(scale > 0, label .. ": drawn at a real scale")
+    return scale, dw, dh
+  end
+
+  fits(56, 56, "a vanilla 56x56 sprite")
+  fits(64, 64, "an oversized 64x64 sprite")
+  fits(96, 96, "a very large 96x96 sprite")
+  fits(80, 40, "a wide sprite")
+  fits(40, 80, "a tall sprite")
+  fits(32, 32, "a small sprite")
+
+  -- a sprite that already fits is never scaled UP: blowing a 32-pixel sprite
+  -- up to 56 is a blurry 32-pixel sprite
+  local scale = fits(32, 32, "a small sprite")
+  T.eq(scale, 1, "a sprite that fits is drawn at 1:1")
+  T.eq(select(1, fits(56, 56, "a vanilla sprite")), 1,
+       "and so is one that exactly fills the well")
+
+  -- an oversized one comes down by the tighter ratio, keeping its aspect
+  local _, _, _, dw, dh = C.fit(64, 64, WELL_X, WELL_Y, WELL, WELL)
+  T.eq(dw, 56, "a 64x64 sprite is scaled to the well's width")
+  T.eq(dh, 56, "and its height")
+  local _, _, _, wideW, wideH = C.fit(112, 56, WELL_X, WELL_Y, WELL, WELL)
+  T.eq(wideW, 56, "a wide sprite is bounded by its width")
+  T.eq(wideH, 28, "and keeps its aspect ratio")
+
+  -- and the slack is shared, not all dumped above the picture
+  local _, smallY = C.fit(32, 32, WELL_X, WELL_Y, WELL, WELL)
+  T.eq(smallY, WELL_Y + 12, "a small sprite is centred, not floored")
+  T.check(smallY - WELL_Y == (WELL_Y + WELL) - (smallY + 32),
+          "with the same air above it as below")
+end
+
+-- ------- the chrome fits the screen it is drawn on
+
+do
+  local C = assert(loadfile(DIR .. "/chrome.lua"))()({})
+  T.eq(C.BODY_TOP, 24, "the body starts under the header box")
+  T.eq(C.BODY_BOTTOM, 119, "and ends before the footer box")
+  T.eq(C.BODY_BOTTOM - C.BODY_TOP + 1, 96, "96 pixels of body")
+  T.eq(96 % 16, 0, "which is a whole number of 16-pixel rows")
+  T.eq(96 / 16, 6, "six of them")
+  T.eq(96 % 12, 0, "and of 12-pixel rows")
+
+  -- the view/page indicator has to fit the margin it is right-aligned into
+  T.eq(C.pipsWidth(3), 21, "three pips are 21 pixels")
+  T.check(C.RIGHT - C.pipsWidth(3) > 8 + 14 * 8,
+          "which clears the longest list title")
+end
+
+-- ------- the list is six rows, and the icons still land on tiles
+
+do
+  local game = fakeGame(SEEN, OWNED)
+  local list = listFactory.new(game)
+  T.eq(list.rows, 6, "the boxed list draws six rows, not the vanilla seven")
+
+  -- the scroll clamp has to agree with the row count, or the cursor walks off
+  -- the bottom of the box
+  list.index = 6
+  list.scroll = 0
+  T.check(list.index - list.scroll <= list.rows,
+          "six rows of cursor fit without scrolling")
+end
+
 -- ------- the entry the onDone contract promises
 
 do

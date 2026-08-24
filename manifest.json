@@ -1,9 +1,11 @@
 {
   "id": "Gen1Dex",
   "name": "Gen1Dex",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "api": 2,
-  "games": ["gen1"],
+  "games": [
+    "gen1"
+  ],
   "entry": "main.lua",
   "profile": "content",
   "category": "UI",
@@ -19,8 +21,13 @@
     "new_icons",
     "new_sprites"
   ],
-  "conflicts": ["useful_dex", "pokedex_plus"],
-  "permissions": ["engine_internals"],
-  "description": "The Pokedex with a POKeMON beside every entry: the party icon to the left of each row, blacked out to a silhouette until you have seen that species, and every one you have in its own colours. SELECT cycles the list between numbered, A-Z and caught only. An entry is three pages A moves between -- the vanilla page with its sprite and description, then base stats with BST, types and evolutions, then the full movelist of level-up moves and TM/HM with same-type moves marked.",
+  "conflicts": [
+    "useful_dex",
+    "pokedex_plus"
+  ],
+  "permissions": [
+    "engine_internals"
+  ],
+  "description": "The Pokedex with a POKeMON beside every entry: the party icon to the left of each row, blacked out to a silhouette until you have seen that species, and every one you have in its own colours. Boxed top and bottom like the rest of the set, with the icon column ruled off from the names. SELECT cycles the list between numbered, A-Z and caught only. An entry is three pages LEFT and RIGHT walk between -- the vanilla page with its sprite and description, then base stats with BST, types and evolutions, then the full movelist of level-up moves and TM/HM with same-type moves marked.",
   "github": "wild1walker/Gen1Dex"
 }

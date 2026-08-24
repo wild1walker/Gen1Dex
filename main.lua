@@ -63,15 +63,30 @@ return function(mod)
   })
 
   local DexData = loadSibling(mod, "dexdata.lua")
+  local makeChrome = loadSibling(mod, "chrome.lua")
   local makeList = loadSibling(mod, "list.lua")
   local makeEntry = loadSibling(mod, "entry.lua")
   if not DexData then return end
+
+  -- The chrome is shared by both screens, so it is built once and handed to
+  -- each: a header box on the list that sits a pixel off the one on the entry
+  -- reads as two mods rather than one.  Without it neither screen can draw,
+  -- so this is the one failure that takes the whole Pokédex back to vanilla.
+  local C
+  if type(makeChrome) == "function" then
+    local ok, built = pcall(makeChrome, mod)
+    if ok and type(built) == "table" then C = built end
+  end
+  if not C then
+    mod.log:error("the shared chrome did not build; leaving the vanilla dex")
+    return
+  end
 
   -- Registered independently: a failure building one screen leaves the other
   -- installed and the broken one on the builtin, rather than taking the whole
   -- Pokédex down with it.
   if type(makeList) == "function" then
-    local ok, screen = pcall(makeList, mod, DexData)
+    local ok, screen = pcall(makeList, mod, DexData, C)
     if ok and type(screen) == "table" and type(screen.new) == "function" then
       mod.content.screens:register("PokedexMenu", screen)
     else
@@ -80,7 +95,7 @@ return function(mod)
   end
 
   if type(makeEntry) == "function" then
-    local ok, screen = pcall(makeEntry, mod, DexData)
+    local ok, screen = pcall(makeEntry, mod, DexData, C)
     if ok and type(screen) == "table" and type(screen.new) == "function" then
       mod.content.screens:register("DexEntryMenu", screen)
     else

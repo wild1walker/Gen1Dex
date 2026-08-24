@@ -1,6 +1,7 @@
--- Gen1Dex: the Pokédex ENTRY -- three pages, A between them, B out.
+-- Gen1Dex: the Pokédex ENTRY -- three pages, LEFT and RIGHT between them,
+-- B out.
 --
--- Returns a factory: factory(mod, DexData) -> { new = function(game, arg) },
+-- Returns a factory: factory(mod, DexData, C) -> { new = function(game, arg) },
 -- which main.lua installs over the builtin "DexEntryMenu" id.
 --
 -- ------- the three pages
@@ -9,12 +10,18 @@
 --   STATS   the five base stats and their total, the types, the evolutions
 --   MOVES   the learnset, then the machines, paginated
 --
--- A advances, wrapping DEX -> STATS -> MOVES -> DEX.  On the DEX page A first
--- walks the description's own pages, because that is what A did there in the
--- ROM (home/text.asm <PAGE>) and taking the key away would have made a
--- two-page entry unreadable.  Only once the description is spent does A move
--- on -- so the vanilla page still behaves like the vanilla page, and the two
--- new ones are past the end of it rather than in front of it.
+-- LEFT and RIGHT walk them, wrapping both ways, and the two arrows in the
+-- header say so.  That is the pair of keys the page turn belongs on: the
+-- pages sit BESIDE each other, nothing else on the screen wants left or
+-- right, and a reader who has gone one page too far should be able to go
+-- back -- which a single cycling key can only do by going forward twice.
+--
+-- A still advances, because A is what the vanilla page used and a habit is
+-- not worth breaking for its own sake.  On the DEX page it first walks the
+-- description's own pages (home/text.asm <PAGE>), and only once the text is
+-- spent does it move on.  LEFT and RIGHT do not wait for the text: they are
+-- page keys, and a reader who wants page three should not have to read
+-- page one to get there.
 --
 -- The DEX page is why this is not a port of useful_dex's entry screen: that
 -- one replaces the vanilla page outright and its description goes with it, so
@@ -23,14 +30,14 @@
 --
 -- ------- the shape of every page
 --
---   rows 0-2    a header box: the species' name, and its number
---   rows 3-14   the page
---   rows 15-17  a footer box: what A does here, and what B does
+--   rows 0-2    the header: the two page arrows, the name, the number
+--   rows 3-14   the page, ruled into columns
+--   rows 15-17  the footer: which page this is, and what else is on it
 --
--- The two boxes are the same on all three pages and drawn by the same call,
--- so the pages differ only where they say something different.  That is the
--- whole visual argument for the frame: A cycling three pages that share a
--- header and a footer reads as one screen with three faces, where three bare
+-- The two boxes and the arrows are the same on all three pages and drawn by
+-- the same call, so the pages differ only where they say something different.
+-- That is the whole visual argument for the frame: three pages that share a
+-- header and a footer read as one screen with three faces, where three bare
 -- 160x144 fills read as three screens.
 --
 -- ------- black chrome, coloured POKéMON
@@ -42,7 +49,7 @@
 -- the type colours, and they do not go through the palette pass at all: see
 -- "the type colours are not palette colours" below.
 
-return function(mod, DexData)
+return function(mod, DexData, C)
   local Font = require("src.render.Font")
   local PaletteFX = require("src.render.PaletteFX")
   local Sound = require("src.core.Sound")
@@ -53,53 +60,59 @@ return function(mod, DexData)
 
   -- ------- geometry
 
-  local HEADER_TH, FOOTER_TY = 3, 15
-  local HEADER_TEXT_Y = 8
-  local FOOTER_TEXT_Y = 128
-  local LEFT, RIGHT = 8, 152        -- the text margins, everywhere
+  -- The header: an arrow at each edge, the name after the left one, the
+  -- number before the right one.  The name is capped at ten glyphs -- the
+  -- longest in the game -- so a mod's longer one is cut rather than drawn
+  -- through "No.001".
+  local HEAD_NAME_X, HEAD_NAME_GLYPHS = 16, 10
+  local HEAD_NUM_END = 144
+  local ARROW_L_X, ARROW_R_X, ARROW_Y = 8, 148, 8
 
-  -- The sprite well: seven tiles square at tile (1,3), which is where the
-  -- vanilla entry puts the pic and the largest a Gen 1 front sprite gets.
-  -- Tile-aligned because it carries the species palette zone.
+  -- The sprite well: seven tiles square at tile (1,3), which is the largest a
+  -- Gen 1 front sprite gets.  Tile-aligned because it carries the species
+  -- palette zone.  Anything bigger is scaled down into it rather than allowed
+  -- to run past the bottom -- see C.fit.
   local PIC_TX, PIC_TY, PIC_TILES = 1, 3, 7
   local PIC_X, PIC_Y = PIC_TX * 8, PIC_TY * 8
-  local PIC_SPAN = PIC_TILES * 8
+  local PIC_SPAN = PIC_TILES * 8         -- 56, so the well is y 24..79
 
-  -- DEX page: the right-hand column beside the sprite, and the description
-  -- under both.  Three lines at 12 is what fits between the rule and the
-  -- footer box; the ROM never prints more than three to a page.
+  -- DEX page.  The column rule stands between the picture and the words about
+  -- it, and the description sits under a rule of its own.
+  local DEX_RULE_X = 68
   local INFO_X = 72
-  local KIND_Y, HT_Y, WT_Y = 32, 52, 64
-  local DESC_RULE_Y = 84
-  local DESC_Y, DESC_STEP, DESC_LINES = 88, 12, 3
+  local KIND_Y, HT_Y, WT_Y = 28, 46, 60
+  local DESC_RULE_Y = 82
+  local DESC_Y, DESC_STEP, DESC_LINES = 86, 12, 3
 
-  -- STATS page: two columns.  The left one is a label and a right-aligned
-  -- number, so it needs 3 glyphs plus 3 digits plus air -- 56 pixels, ending
-  -- at 64.  The right one has to hold a species NAME, and ten glyphs is the
+  -- STATS page: two columns either side of the same rule.  The left one is a
+  -- label and a right-aligned number, so it needs 3 glyphs plus 3 digits plus
+  -- air.  The right one has to hold a species NAME, and ten glyphs is the
   -- longest one in the game, so it needs all 80 pixels from 72 to 152.  That
   -- split is why there are no stat BARS here: a bar wide enough to read costs
   -- 24 pixels, the left column has none spare, and taking them from the right
   -- one truncates CHARMELEON.  A number you can compare is worth more than a
   -- bar you cannot read.
-  local STAT_X, STAT_END = 8, 64
+  local STAT_X, STAT_END = 8, 60
   local STAT_HEAD_Y, STAT_Y, STAT_STEP = 28, 42, 12
   local BST_RULE_Y, BST_Y = 98, 102
-  local TYPE_X = 72
+  local TYPE_X = INFO_X
   local TYPE_HEAD_Y, TYPE_Y, TYPE_STEP = 28, 42, 14
   local TYPE_RULE_H, TYPE_RULE_DY = 2, 9
   local EVO_HEAD_Y, EVO_Y, EVO_STEP = 78, 90, 11
-  local EVO_ROWS = 3
+  local EVO_ROWS, EVO_GLYPHS = 3, 10
 
-  -- MOVES page: eight rows of twelve from 28 to 112, which ends one pixel
+  -- MOVES page: eight rows of twelve from 28 to 112, which ends seven pixels
   -- clear of the footer box's top rule.
   local MOVE_CHIP_X, MOVE_X = 8, 16
   local MOVE_Y, MOVE_STEP, MOVE_ROWS = 28, 12, 8
   local CHIP, CHIP_DY = 5, 1
-
-  local BLACK = { 0, 0, 0 }
+  local HEAD_RULE_DY = 9
 
   local PAGES = { "dex", "stats", "moves" }
+  local PAGE_LABELS = { dex = "DEX", stats = "STATS", moves = "MOVES" }
+  local PAGE_INDEX = { dex = 1, stats = 2, moves = 3 }
   local NEXT_PAGE = { dex = "stats", stats = "moves", moves = "dex" }
+  local PREV_PAGE = { dex = "moves", stats = "dex", moves = "stats" }
 
   -- ------- the type colours are not palette colours
   --
@@ -130,16 +143,6 @@ return function(mod, DexData)
     DARK = { 0.30, 0.25, 0.25 }, FAIRY = { 0.90, 0.50, 0.75 },
   }
 
-  local function ink(shade)
-    love.graphics.setColor(shade[1], shade[2], shade[3], 1)
-  end
-
-  local function option(key, fallback)
-    local ok, value = pcall(function() return mod.options:get(key) end)
-    if not ok or value == nil then return fallback end
-    return value
-  end
-
   local function colorFor(typeId)
     return TYPE_COLORS[tostring(typeId or ""):upper()]
   end
@@ -151,7 +154,7 @@ return function(mod, DexData)
     love.graphics.setColor(color[1], color[2], color[3], 1)
     love.graphics.rectangle("fill", x, y, w, h)
     pcall(PaletteFX.markTrueColor, x, y, w, h)
-    ink(BLACK)
+    C.black()
   end
 
   -- ------- animated sprites from the Crystal mod
@@ -294,18 +297,29 @@ return function(mod, DexData)
     return math.max(1, math.ceil(#self:moveList() / MOVE_ROWS))
   end
 
+  -- Land on a page and put it in the state it should be entered in.  Both the
+  -- page keys and A come through here, so a page cannot be arrived at two
+  -- ways and be set up differently by one of them.
+  function Entry:goTo(page)
+    self.page = page
+    if page == "dex" then self.descPage = 1 end
+    if page == "moves" then
+      self:moveList()
+      self.movePage = 1
+    end
+  end
+
+  function Entry:turnPage(delta)
+    self:goTo(delta < 0 and PREV_PAGE[self.page] or NEXT_PAGE[self.page])
+  end
+
   function Entry:advance()
     -- the description owns A for as long as it has pages left; see the header
     if self.page == "dex" and self.desc and self.descPage < #self.desc then
       self.descPage = self.descPage + 1
       return
     end
-    self.page = NEXT_PAGE[self.page]
-    if self.page == "dex" then self.descPage = 1 end
-    if self.page == "moves" then
-      self:moveList()
-      self.movePage = 1
-    end
+    self:turnPage(1)
   end
 
   -- UP/DOWN steps through the species you have SEEN, in dex order, wrapping
@@ -313,7 +327,7 @@ return function(mod, DexData)
   -- otherwise step through 139 blanks; and the current species is found by
   -- identity rather than by dex number so a renumbering mod cannot desync it.
   function Entry:stepSpecies(delta)
-    if not option("step_species", true) then return end
+    if not C.option("step_species", true) then return end
     local species = DexData.seenSpecies(self.game.data,
                                         self.game.save and self.game.save.pokedex)
     if #species < 2 then return end
@@ -322,7 +336,11 @@ return function(mod, DexData)
       if id == self.species then current = i break end
     end
     if not current then return end
+    -- the page survives the step: you were reading stats, you still are, and
+    -- the one thing that changed is whose stats they are
+    local page = self.page
     self:setSpecies(species[(current - 1 + delta) % #species + 1], true)
+    self:goTo(page)
   end
 
   function Entry:stepMovePage(delta)
@@ -344,6 +362,14 @@ return function(mod, DexData)
     end
     if input:wasPressed("a") then
       self:advance()
+      return
+    end
+    if input:wasPressed("left") then
+      self:turnPage(-1)
+      return
+    end
+    if input:wasPressed("right") then
+      self:turnPage(1)
       return
     end
     if self.page == "moves" then
@@ -368,22 +394,21 @@ return function(mod, DexData)
   -- underneath, and the entry would come out wearing the dex list's palette.
   function Entry:sgbPalettes(game)
     local ok, zones = pcall(function()
-      if not option("species_colours", true) then
+      local picZone = function()
+        return PaletteFX.zone(PaletteFX.monPal(game.data, self.species),
+                              PIC_TX, PIC_TY,
+                              PIC_TX + PIC_TILES - 1, PIC_TY + PIC_TILES - 1)
+      end
+      if not C.option("species_colours", true) then
         local base = PaletteFX.pal(game.data, "BROWNMON")
         if not base then return nil end
-        return { PaletteFX.whole(base),
-                 PaletteFX.zone(PaletteFX.monPal(game.data, self.species),
-                                PIC_TX, PIC_TY,
-                                PIC_TX + PIC_TILES - 1, PIC_TY + PIC_TILES - 1) }
+        return { PaletteFX.whole(base), picZone() }
       end
       local out = { PaletteFX.whole(PaletteFX.GRAYS) }
       -- full-colour art is re-blit unshaded over this pass, so a species
       -- palette under it would be paint nobody ever sees
       if self.page == "dex" and self.sprite and not self.spriteTrueColor then
-        local colors = PaletteFX.monPal(game.data, self.species)
-        local zone = colors and PaletteFX.zone(colors, PIC_TX, PIC_TY,
-                                               PIC_TX + PIC_TILES - 1,
-                                               PIC_TY + PIC_TILES - 1)
+        local zone = picZone()
         if zone then out[#out + 1] = zone end
       end
       return out
@@ -393,29 +418,40 @@ return function(mod, DexData)
 
   -- ------- drawing
 
-  local function rule(x, y, w)
-    love.graphics.rectangle("fill", x, y, w, 1)
+  -- The header and footer, identical on all three pages.  The two arrows are
+  -- the page keys made visible: same triangle, same row, one on each edge.
+  function Entry:drawChrome()
+    C.clear()
+
+    C.headerBox()
+    C.arrow(ARROW_L_X, ARROW_Y, "left")
+    C.arrow(ARROW_R_X, ARROW_Y, "right")
+    Font.draw(C.truncate(self.def.name, HEAD_NAME_GLYPHS),
+              HEAD_NAME_X, C.HEADER_TEXT_Y)
+    local digits = (self.game.data.constants or {}).dexDigits or 3
+    local number = Strings("No.")
+      .. ("%0" .. digits .. "d"):format(self.def.dex or 0)
+    Font.draw(number, HEAD_NUM_END - Font.width(number), C.HEADER_TEXT_Y)
+
+    C.footerBox()
+    Font.draw(Strings(PAGE_LABELS[self.page]), C.LEFT, C.FOOTER_TEXT_Y)
+    local hint = self:footerHint()
+    if hint then
+      Font.draw(hint, C.RIGHT - Font.width(hint), C.FOOTER_TEXT_Y)
+    end
   end
 
-  function Entry:drawChrome(aHint, bHint)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.rectangle("fill", 0, 0, 160, 144)
-
-    ink(BLACK)
-    Font.drawBox(0, 0, 20, HEADER_TH)
-    ink(BLACK)
-    Font.draw(self.def.name, LEFT, HEADER_TEXT_Y)
-    local digits = (self.game.data.constants or {}).dexDigits or 3
-    local number = Strings("No.") .. ("%0" .. digits .. "d"):format(self.def.dex or 0)
-    Font.draw(number, RIGHT - Font.width(number), HEADER_TEXT_Y)
-
-    ink(BLACK)
-    Font.drawBox(0, FOOTER_TY, 20, 3)
-    ink(BLACK)
-    if aHint then Font.draw(aHint, LEFT, FOOTER_TEXT_Y) end
-    if bHint then
-      Font.draw(bHint, RIGHT - Font.width(bHint), FOOTER_TEXT_Y)
+  function Entry:footerHint()
+    if self.page == "dex" and self.desc and self.descPage < #self.desc then
+      return Strings("A:MORE")
     end
+    if self.page == "moves" then
+      local pages = self:movePages()
+      if pages > 1 then
+        return Strings("PAGE %d/%d", self.movePage, pages)
+      end
+    end
+    return Strings("B:EXIT")
   end
 
   function Entry:drawSprite()
@@ -424,27 +460,31 @@ return function(mod, DexData)
     -- White before the sprite or its transparent pixels come out as a solid
     -- silhouette -- the drawn colour multiplies the image, which is the same
     -- property the list screen blacks its unseen icons out with.
-    love.graphics.setColor(1, 1, 1, 1)
+    C.white()
     local w, h = sprite:getDimensions()
-    -- centred across the well and standing on its floor, which is where the
-    -- vanilla page stands a pic that is shorter than seven tiles
-    local x = PIC_X + math.floor((PIC_SPAN - w) / 2)
-    local y = PIC_Y + math.max(0, PIC_SPAN - h)
-    love.graphics.draw(sprite, x, y)
+    -- Scaled into the well if it is bigger than one, centred in both axes
+    -- either way.  A sprite mod's 64-pixel art used to run eight pixels past
+    -- the bottom of the well, through the rule and into the description; and
+    -- a small sprite pinned to the floor of the well left all of its slack in
+    -- one stripe above it.
+    local x, y, scale, dw, dh = C.fit(w, h, PIC_X, PIC_Y, PIC_SPAN, PIC_SPAN)
+    love.graphics.draw(sprite, x, y, 0, scale, scale)
     if self.spriteTrueColor then
-      pcall(PaletteFX.markTrueColor, x, y, w, h)
+      -- the DRAWN rect, not the file's: a scaled sprite marked at its file
+      -- size would re-blit a patch bigger than the picture
+      pcall(PaletteFX.markTrueColor, x, y, dw, dh)
     end
-    ink(BLACK)
+    C.black()
   end
 
   function Entry:drawDex()
-    local hasMore = self.desc and self.descPage < #self.desc
-    self:drawChrome(hasMore and Strings("A:MORE") or Strings("A:STATS"),
-                    Strings("B:EXIT"))
+    self:drawChrome()
     self:drawSprite()
 
     local e = self.def.dexEntry or {}
-    ink(BLACK)
+    C.black()
+    -- the picture, ruled off from the words about it
+    C.rule(DEX_RULE_X, C.BODY_TOP, 1, DESC_RULE_Y - C.BODY_TOP)
     Font.draw(e.kind or "?", INFO_X, KIND_Y)
 
     -- Height and weight are printed only once the species is OWNED, which is
@@ -463,20 +503,22 @@ return function(mod, DexData)
       end
     end
 
-    rule(0, DESC_RULE_Y, 160)
+    C.rule(0, DESC_RULE_Y, 160)
     if self.desc then
       local lines = self.desc[self.descPage] or self.desc[#self.desc]
       for i = 1, math.min(#lines, DESC_LINES) do
-        Font.draw(lines[i], LEFT, DESC_Y + (i - 1) * DESC_STEP)
+        Font.draw(lines[i], C.LEFT, DESC_Y + (i - 1) * DESC_STEP)
       end
     else
-      Font.draw(Strings("Data unknown."), LEFT, DESC_Y)
+      Font.draw(Strings("Data unknown."), C.LEFT, DESC_Y)
     end
   end
 
   function Entry:drawStats()
-    self:drawChrome(Strings("A:MOVES"), Strings("B:EXIT"))
-    ink(BLACK)
+    self:drawChrome()
+    C.black()
+    -- the same rule the dex page draws, run the full height of the body
+    C.rule(DEX_RULE_X, C.BODY_TOP, 1, C.BODY_BOTTOM - C.BODY_TOP + 1)
 
     Font.draw(Strings("STATS"), STAT_X, STAT_HEAD_Y)
     for i, s in ipairs(self.stats.stats) do
@@ -485,7 +527,7 @@ return function(mod, DexData)
       local value = tostring(s.value or 0)
       Font.draw(value, STAT_END - Font.width(value), y)
     end
-    rule(STAT_X, BST_RULE_Y, STAT_END - STAT_X)
+    C.rule(STAT_X, BST_RULE_Y, STAT_END - STAT_X)
     Font.draw(Strings("BST"), STAT_X, BST_Y)
     local bst = tostring(self.stats.bst)
     Font.draw(bst, STAT_END - Font.width(bst), BST_Y)
@@ -515,21 +557,19 @@ return function(mod, DexData)
     -- bag; the species is not written down anywhere else.
     if #evolutions == 1 then
       local evo = evolutions[1]
-      Font.draw(evo.label, TYPE_X, EVO_Y)
-      Font.draw(evo.name, TYPE_X, EVO_Y + EVO_STEP)
+      Font.draw(C.truncate(evo.label, EVO_GLYPHS), TYPE_X, EVO_Y)
+      Font.draw(C.truncate(evo.name, EVO_GLYPHS), TYPE_X, EVO_Y + EVO_STEP)
       return
     end
     for i = 1, math.min(#evolutions, EVO_ROWS) do
-      Font.draw(evolutions[i].name, TYPE_X, EVO_Y + (i - 1) * EVO_STEP)
+      Font.draw(C.truncate(evolutions[i].name, EVO_GLYPHS),
+                TYPE_X, EVO_Y + (i - 1) * EVO_STEP)
     end
   end
 
   function Entry:drawMoves()
-    local pages = self:movePages()
-    self:drawChrome(Strings("A:DEX"),
-                    pages > 1 and Strings("PAGE %d/%d", self.movePage, pages)
-                      or Strings("B:EXIT"))
-    ink(BLACK)
+    self:drawChrome()
+    C.black()
 
     local rows = self:moveList()
     local first = (self.movePage - 1) * MOVE_ROWS
@@ -537,17 +577,27 @@ return function(mod, DexData)
       local row = rows[first + i]
       if not row then break end
       local y = MOVE_Y + (i - 1) * MOVE_STEP
-      -- the chip marks a move this species gets STAB on: the one fact about a
-      -- movelist that changes which move you pick, and the only thing on the
-      -- page worth spending colour on
-      local move = row.move
-      if move and move.stab then
-        trueColorRect(colorFor(move.type), MOVE_CHIP_X, y + CHIP_DY, CHIP, CHIP)
+      if row.heading then
+        -- a section heading, underlined the width of the page: the two
+        -- sections are the only structure this page has, so the rule is what
+        -- keeps a movelist from reading as one undifferentiated column
+        Font.draw(row.text, C.LEFT, y)
+        C.rule(C.LEFT, y + HEAD_RULE_DY, C.RIGHT - C.LEFT)
+      else
+        -- the chip marks a move this species gets STAB on: the one fact about
+        -- a movelist that changes which move you pick, and the only thing on
+        -- the page worth spending colour on
+        local move = row.move
+        if move and move.stab then
+          trueColorRect(colorFor(move.type), MOVE_CHIP_X, y + CHIP_DY,
+                        CHIP, CHIP)
+        end
+        Font.draw(row.text, MOVE_X, y)
       end
-      Font.draw(row.text, MOVE_X, y)
     end
-    if pages > 1 and self.movePage < pages then
-      Font.drawCode(Theme.moreArrow, RIGHT - 8, MOVE_Y + (MOVE_ROWS - 1) * MOVE_STEP)
+    if self.movePage < self:movePages() then
+      Font.drawCode(Theme.moreArrow, C.RIGHT - 8,
+                    MOVE_Y + (MOVE_ROWS - 1) * MOVE_STEP)
     end
   end
 
@@ -559,10 +609,11 @@ return function(mod, DexData)
     else
       self:drawDex()
     end
-    love.graphics.setColor(1, 1, 1, 1)
+    C.white()
   end
 
   Entry.PAGES = PAGES
+  Entry.PAGE_INDEX = PAGE_INDEX
 
   return { new = Entry.new }
 end

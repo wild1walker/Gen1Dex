@@ -26,8 +26,17 @@ menu-icon mod (`unique_menu_icons`, `new_icons`) shows up here for free.
 **A species you have not discovered is a black silhouette.** Its shape is
 there, its colours are not, and it fills back in the moment you see one.
 
-Every discovered POKéMON on screen wears its own species colours — seven
-palettes at once, where the Game Boy could show four.
+Every discovered POKéMON on screen wears its own species colours — six palettes
+at once, where the Game Boy could show four.
+
+### Boxed like the rest of the set
+
+Both screens carry a header box and a footer box, with the body ruled into
+columns between them: on the list the icon column is ruled off from the names
+and the owned ball sits in a fixed column of its own, so a column of balls
+answers "what do I still need" at a glance. The list draws six rows rather than
+the vanilla seven — the two boxes cost a tile row each end, and six 16-pixel
+rows fill the 96 pixels between them exactly.
 
 ### Three ways to read the list
 
@@ -39,15 +48,17 @@ palettes at once, where the Game Boy could show four.
 | `POKéDEX A-Z` | only what you have seen, sorted by name, dex numbers kept |
 | `POKéDEX CAUGHT` | only what you own, in dex order |
 
-The cursor stays on the same POKéMON wherever it survives the switch, and the
-`SEEN` / `OWN` counts in the footer are the whole dex's in every view — they
+A row of three pips in the header shows which view you are in. The cursor stays
+on the same POKéMON wherever it survives the switch, and the `SEEN` / `OWN`
+counts in the footer are the whole dex's in every view — they
 count your Pokédex, not the filter you are looking through it with.
 
 UP on the first row and DOWN on the last wrap to the other end.
 
 ### An entry is three pages
 
-**A** moves between them, **B** closes.
+**LEFT** and **RIGHT** walk between them, wrapping both ways, and the two
+arrows in the header say so. **B** closes.
 
 1. **DEX** — the sprite, the kind, height and weight, and the Pokédex
    description. This is the vanilla page, kept.
@@ -56,8 +67,10 @@ UP on the first row and DOWN on the last wrap to the other end.
 3. **MOVES** — the full movelist: level-up moves first, then TM/HM by machine
    number, paginated eight rows at a time.
 
-On the DEX page **A** turns the description's own pages first, the way it did
-in the ROM, and only moves on once the text is spent.
+**A** still advances too, because that is the key the vanilla page used. On the
+DEX page it turns the description's own pages first, the way it did in the ROM,
+and only moves on once the text is spent — but LEFT and RIGHT do not wait for
+the text, because page three should not cost you reading page one.
 
 On the first two pages **UP/DOWN** opens the previous or next species you have
 seen, wrapping at both ends. On MOVES they page the list.
@@ -118,6 +131,21 @@ colourised pass, so it would come back in colour underneath — the one entry yo
 have never met would be the only one on screen in full colour. A tint is
 applied at draw time, before any of that, and holds for both kinds of art.
 
+### The sprite well scales rather than clips
+
+A Gen 1 front sprite is at most 56×56 and the well is exactly that — but nothing
+*guarantees* it. `HGSS_SPRITES`, `Gold_Silver_Sprites` and the Crystal animation
+frames ship whatever art their authors drew, and a 96×96 one drawn at 1:1 ran 38
+pixels past the bottom of the well, through the rule and across all three lines
+of the description. Oversized art is now scaled down by the tighter of the two
+ratios, keeping its aspect; art that already fits is never scaled *up*, because
+a 32-pixel sprite blown up to 56 is a blurry 32-pixel sprite. Whatever is left is
+centred in both axes — a picture pinned to the floor of a well it does not fill
+leaves all of its slack in one stripe above it.
+
+The palette zone and the true-colour mark are measured from the **drawn** rect,
+not the file's, or a scaled sprite would re-blit a patch bigger than the picture.
+
 ### The geometry is in whole tiles
 
 An SGB palette zone is *addressed* in tiles, so an icon that is not on a tile
@@ -153,6 +181,9 @@ What is different here:
   mod exists for.
 - **Framed pages.** A shared header and footer box on all three entry pages, so
   three pages read as one screen with three faces rather than as three screens.
+- **LEFT/RIGHT page navigation**, with arrows in the header. `useful_dex` cycles
+  on A only, so overshooting a page means going forward twice to get back.
+- **Oversized sprite packs do not overflow the page.**
 - **Type colour survives the palette pass.** `useful_dex` draws its STAB chips
   as plain colour, which the SGB shade remap turns into an arbitrary grey.
 - **Per-species palette zones** on the list and the entry sprite.
@@ -173,9 +204,9 @@ What is different here:
 - **No stat bars on the STATS page.** A bar wide enough to read costs 24
   pixels, and taking them from the right column truncates `CHARMELEON`. A
   number you can compare is worth more than a bar you cannot read.
-- **The list still draws seven rows.** The icons fit the vanilla pitch rather
-  than the list growing to fit them, so the page turns exactly where it always
-  did.
+- **The list draws six rows, not the vanilla seven.** The header and footer
+  boxes cost a tile row each end. The icons were sized to the vanilla 16-pixel
+  pitch rather than the pitch growing to fit them.
 
 ---
 

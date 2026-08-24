@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.1.0
+
+Spacing, chrome and the page keys.
+
+### Fixed
+
+- **An oversized sprite no longer runs into the description.** A Gen 1 front
+  sprite is at most 56x56 and the well is exactly that, but a sprite pack ships
+  whatever art its author drew: a 96x96 one drawn at 1:1 ran 38 pixels past the
+  bottom of the well, through the rule and across all three lines of the text
+  under it. Oversized art is now scaled down by the tighter of the two ratios,
+  keeping its aspect; art that already fits is never scaled up.
+- **The white stripe above a small sprite is gone.** The picture was pinned to
+  the floor of the well, so everything shorter than 56 pixels left all of its
+  slack in one band above it. It is centred in both axes now.
+- The palette zone and the true-colour mark are measured from the DRAWN rect
+  rather than the file's, so a scaled sprite no longer re-blits a patch bigger
+  than the picture.
+
+### Added
+
+- **LEFT and RIGHT walk the entry's three pages**, wrapping both ways, with an
+  arrow at each end of the header saying so. A still advances, but a reader one
+  page too far can now go back instead of forward twice. LEFT and RIGHT do not
+  wait for the description the way A does.
+- Stepping to another species with UP/DOWN keeps the page you were reading.
+
+### Changed
+
+- **Both screens are boxed top and bottom**, like the rest of the set: a header
+  box naming what you are looking at and a footer box saying what you can do
+  about it, with the body ruled into columns between them.
+- The list rules its icon column off from the names, and the owned ball moved
+  into a fixed column of its own -- a column of balls can be scanned down, a
+  scatter of them following the end of each name cannot.
+- The list draws six rows rather than seven: the two boxes cost a tile row each
+  end, and six 16-pixel rows fill the 96 pixels between them exactly.
+- A row of three pips in the list header shows which view you are in.
+- The entry's footer names the page you are on; the movelist's section headings
+  are underlined.
+- The DEX page's info column was pulled up and tightened, and the description
+  rule with it.
+
 ## 1.0.0
 
 First release.

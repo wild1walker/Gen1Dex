@@ -2,13 +2,19 @@
 return {
   summary = "The Pokedex with a POKeMON beside every entry: the party icon "
     .. "to the left of each row, blacked out to a silhouette until you have "
-    .. "seen that species, and three pages behind every entry.",
+    .. "seen that species, and three pages behind every entry. Boxed top and "
+    .. "bottom like the rest of the set, with the icon column ruled off from "
+    .. "the names.",
   author = "wild1walker",
   tags = { "ui", "pokedex", "quality-of-life", "icons" },
   compat = { engine = ">=0.0.0-0 <2.0.0", modApi = 2, games = { "gen1" } },
   differences = {
     changed = {
-      "the dex list draws a party icon in the margin left of every row, on the vanilla list's own 16-pixel pitch, so the page still turns exactly where it always did",
+      "the dex list draws a party icon in the margin left of every row, on the vanilla list's own 16-pixel pitch",
+      "both screens are boxed top and bottom -- a header box naming what you are looking at, a footer box saying what you can do about it -- with the body ruled into columns between them, which is what costs the list its seventh row: six 16-pixel rows fill the 96 pixels between the boxes exactly",
+      "the owned ball moved out from one blank glyph after the name into a fixed column of its own, because a column of balls answers what do I still need at a glance and a scatter of them following the end of each word does not",
+      "an oversized sprite is scaled into the well rather than drawn at 1:1 from the top of it: a 96-pixel one from a sprite pack ran 38 pixels past the bottom, through the rule and across all three lines of the description",
+      "the sprite is centred in its well rather than stood on the floor of it, so a picture shorter than 56 pixels no longer leaves all of its slack in one band above it",
       "the entry page is the first of three rather than the only one -- its sprite, kind, height, weight and description are unchanged, and A now carries on past the end of the text instead of closing",
       "the list and the entry are drawn over the plain grey ramp rather than the dex's BROWNMON, because a named palette paints shade 1 a colour and the chrome here is meant to read as black line art (SPECIES COLOURS puts the brown back)",
       "the entry's sprite resolves through the BATTLE kind first, with the dex kind as the fallback, so a sprite or animation mod's replacement art is what the page shows",
@@ -16,12 +22,14 @@ return {
     },
     added = {
       "an undiscovered species is drawn as a black silhouette -- a draw-time tint rather than a palette zone, which is the only version of it that also holds for an icon mod's authored full-colour art",
-      "a palette zone per discovered row, so all seven POKeMON on screen wear their own species colours at once, where the Game Boy could show four",
+      "a palette zone per discovered row, so all six POKeMON on screen wear their own species colours at once, where the Game Boy could show four",
       "SELECT cycles the list between POKeDEX, POKeDEX A-Z (seen only, sorted by name, dex numbers kept) and POKeDEX CAUGHT (owned only), keeping the cursor on the same species wherever it survives the switch",
       "a STATS page: the five base stats, their total as BST, the types, and what the species evolves into",
       "a MOVES page: the level-up learnset and then the TM/HM list, eight rows to a page, with the machine numbers read off the ITEMS registry rather than a hard-coded table so a mod that adds TM51 needs no help",
       "STAB moves marked with a chip in their own type's colour, and each type on the STATS page underlined in its own -- both marked true-colour so the SGB shade remap cannot turn them into arbitrary greys",
-      "UP/DOWN on the first two entry pages opens the previous or next species you have SEEN, wrapping at both ends, and pages the movelist on the third",
+      "LEFT and RIGHT walk the entry's three pages, wrapping both ways, with an arrow at each end of the header saying so -- A still advances, but a reader one page too far can go back rather than forward twice, and unlike A the page keys do not wait for the description to be read out",
+      "UP/DOWN on the first two entry pages opens the previous or next species you have SEEN, wrapping at both ends, and pages the movelist on the third; the page you were reading survives the step",
+      "a row of three pips in the list header showing which of the three views you are in, which costs 21 pixels where a third word would cost sixty",
       "evolution labels taken from the merged evolution_methods registry's describe(), so a mod-added evolution method describes itself on this page",
       "optional animated sprites from crystal_animated_sprites_with_shiny_visuals, played on the DEX page when that mod is installed",
       "UP on the first row and DOWN on the last wrap around, and a held direction keeps scrolling",
@@ -31,7 +39,7 @@ return {
       "useful_dex and pokedex_plus are declared conflicts rather than merely incompatible: all three register DexEntryMenu and PokedexMenu, and the last one loaded would win silently",
       "a species with several evolutions loses the method labels -- one evolution gets two lines, how and then into what, but two or three (EEVEE) get one line each and just the name, because the column is ten glyphs wide, LEVEL 16 IVYSAUR is sixteen, and three rows is all that fits under the types",
       "there are no stat bars on the STATS page, deliberately: a bar wide enough to read costs 24 pixels, the left column has none spare, and taking them from the right column truncates CHARMELEON -- a number you can compare is worth more than a bar you cannot",
-      "the list still draws seven rows rather than growing to fit the icons, because the icons were sized to the vanilla pitch instead",
+      "the list draws six rows rather than the vanilla seven: the header and footer boxes cost a tile row each end, and the icons were sized to the vanilla 16-pixel pitch rather than the pitch grown to fit them",
       "the icon in a blank row is the real species' icon blacked out, not a generic shape, so on a vanilla boot -- where a Gen 1 icon is a GROUP icon shared by many species (BIRD, BUG, MON) -- the silhouette says which group it is; with unique_menu_icons or new_icons installed it says rather more",
     },
   },

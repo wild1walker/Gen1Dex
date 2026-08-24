@@ -1,28 +1,43 @@
 -- Gen1Dex: the Pokédex LIST -- a party icon beside every entry, and three
 -- views to read them in.
 --
--- Returns a factory: factory(mod, DexData) -> { new = function(game, opts) },
+-- Returns a factory: factory(mod, DexData, C) -> { new = function(game, opts) },
 -- which main.lua installs over the builtin "PokedexMenu" id.
+--
+-- ------- the shape of the screen
+--
+--   rows 0-2    the header: which view you are in, and a pip per view
+--   rows 3-14   six entries, the icon column ruled off from the names
+--   rows 15-17  the footer: SEEN and OWN, for the whole dex
+--
+-- Six rows rather than the vanilla seven.  The vanilla list is a bare
+-- 160x144 fill with nothing drawn on it but text, so all seven fit; boxing
+-- the top and bottom costs three tile rows each and buys the body hard edges.
+-- Six 16-pixel rows fill the 96 pixels between them exactly, which is the
+-- same arithmetic the party pane in Gen1BillsBox runs on.
 --
 -- ------- the shape of a row
 --
 --   x 0-7     the cursor, on the row it is on
 --   x 8-23    the POKéMON, 16x16, two tiles square
---   x 28-     "001 BULBASAUR", and the owned ball after it
+--   x 26      the rule: the icon column, ruled off
+--   x 32-     "001 BULBASAUR"
+--   x 150     the owned ball, in a column of its own
 --
--- Seven rows sixteen pixels apart, which is the vanilla list's own pitch
--- (src/ui/ListMenu.lua draws row n at y = 8 + n*16) -- so the icons fit the
--- list rather than the list moving to fit the icons.  A 16-pixel icon on a
--- 16-pixel pitch sits flush against its neighbours, which is exactly how the
--- party pane in Gen1BillsBox stacks its six.
+-- The ball sits in a FIXED column rather than one blank glyph after the name,
+-- which is where the vanilla list puts it.  Two reasons: the name column has
+-- to end somewhere for the rule to mean anything, and a marker that moves
+-- with the length of the word before it cannot be scanned down -- a column of
+-- balls answers "what do I still need" at a glance and a scatter of them
+-- does not.
 --
 -- ------- why the icon sits on a tile boundary
 --
--- x = 8 and y = 24 + 16n are both whole tiles, and that is load bearing
--- rather than tidy: an SGB palette zone is ADDRESSED in tiles
--- (PaletteFX.zone), and a zone per row is what gives all seven POKéMON on
--- screen their own species colours at once -- where the Game Boy could show
--- four.  Move the icon a pixel and the colour goes with the row above it.
+-- An SGB palette zone is ADDRESSED in tiles (PaletteFX.zone), so an icon that
+-- is not on a tile boundary cannot carry one, and a zone per row is what
+-- gives every POKéMON on screen its own species colours at once -- where the
+-- Game Boy could show four.  Move the icon a pixel and its colour goes with
+-- the row above it.
 --
 -- ------- and why an undiscovered one is black
 --
@@ -41,7 +56,7 @@
 -- an undiscovered row asks for no species zone and marks no true-colour rect,
 -- because both would repaint what the tint just blacked out.
 
-return function(mod, DexData)
+return function(mod, DexData, C)
   local Font = require("src.render.Font")
   local PaletteFX = require("src.render.PaletteFX")
   local PartyMenu = require("src.ui.PartyMenu")
@@ -51,35 +66,22 @@ return function(mod, DexData)
 
   -- ------- geometry, in whole tiles where a zone has to reach
 
-  local ROWS = 7                        -- what ListMenu draws, unchanged
+  local ROWS = 6
   local ROW_H = 16
-  local ROW_TOP = 24                    -- y of the first row: 8 + 1*16
+  local ROW_TOP = C.BODY_TOP             -- 24
   local CURSOR_X = 0
-  local ICON_X = 8                      -- tile 1; the zone covers tiles 1-2
+  local ICON_X = 8                       -- tile 1; the zone covers tiles 1-2
   local ICON = 16
-  local LABEL_X = 28                    -- 4px of air after the icon
-  local TITLE_Y, FOOTER_Y = 4, 136
+  local RULE_X = 26                      -- the hairline the names start after
+  local LABEL_X = 32
+  local BALL_X, BALL_R = 150, 3.5
+  local TEXT_DY = 4                      -- the glyph, centred on the icon
 
-  -- The longest row is a three-digit number, a space and a ten-glyph name --
-  -- "151 CHARMANDER" is 14 glyphs, 112 pixels, ending at 140 -- and the
-  -- owned ball goes one blank glyph past that.  Measured, not assumed: the
-  -- ball is placed off Font.width because NIDORAN's ♂/♀ are multi-byte and
-  -- counting bytes put their ball 16 pixels into the margin (engine #285).
-  local BALL_GAP = 8 + 3
-  local BALL_R = 3.5
+  -- A name is at most ten glyphs and the number three, so the longest label
+  -- is fourteen -- 112 pixels, ending at 144, six clear of the ball column.
+  local LABEL_GLYPHS = 14
 
-  -- A blacked-out silhouette, and the white the row is drawn on.
-  local BLACK = { 0, 0, 0 }
-
-  local function ink(shade)
-    love.graphics.setColor(shade[1], shade[2], shade[3], 1)
-  end
-
-  local function option(key, fallback)
-    local ok, value = pcall(function() return mod.options:get(key) end)
-    if not ok or value == nil then return fallback end
-    return value
-  end
+  local VIEWS = DexData.MODES            -- num, alpha, caught
 
   -- ------- the icon
   --
@@ -160,7 +162,7 @@ return function(mod, DexData)
   local function drawIcon(game, species, x, y, discovered)
     if not species then return end
     if discovered then
-      love.graphics.setColor(1, 1, 1, 1)
+      C.white()
       pcall(PartyMenu.drawIcon, game, stubFor(species), x, y, false, 0, false)
       local rect = fullColour(game, species)
       if rect then
@@ -168,10 +170,10 @@ return function(mod, DexData)
       end
     else
       -- the tint IS the silhouette; see the header
-      ink(BLACK)
+      C.black()
       pcall(PartyMenu.drawIcon, game, stubFor(species), x, y, false, 0, false)
     end
-    love.graphics.setColor(1, 1, 1, 1)
+    C.white()
   end
 
   -- ------- colour
@@ -188,7 +190,7 @@ return function(mod, DexData)
   -- which is the whole of that option.
   local function palettesFor(screen, game)
     local ok, zones = pcall(function()
-      if not option("species_colours", true) then
+      if not C.option("species_colours", true) then
         return PaletteFX.wholeNamed(game.data, "BROWNMON")
       end
       local out = { PaletteFX.whole(PaletteFX.GRAYS) }
@@ -196,7 +198,8 @@ return function(mod, DexData)
         local item = screen.items[screen.scroll + row]
         -- an undiscovered row is deliberately skipped: it is black by tint,
         -- and a species zone would colour the silhouette back in
-        if item and item.species and item.seen and not fullColour(game, item.species) then
+        if item and item.species and item.seen
+            and not fullColour(game, item.species) then
           local colors = PaletteFX.monPal(game.data, item.species)
           local ty = (ROW_TOP + (row - 1) * ROW_H) / 8
           local zone = colors
@@ -216,15 +219,67 @@ return function(mod, DexData)
   -- there is no version of this that leaves that call in place.  Everything
   -- else about the list -- input, scrolling, the side menu, SELECT -- is
   -- still ListMenu's, and is not touched.
+
+  local function activeView(self)
+    for i, name in ipairs(VIEWS) do
+      if name == self.dexMode() then return i end
+    end
+    return 1
+  end
+
+  local function drawHeader(self)
+    C.headerBox()
+    Font.draw(Strings(self.title), C.LEFT, C.HEADER_TEXT_Y)
+    -- which of the three views, in the space a third word would not fit in
+    if C.option("view_cycle", true) then
+      local width = C.pipsWidth(#VIEWS)
+      C.pips(C.RIGHT - width, C.HEADER_TEXT_Y + 2, #VIEWS, activeView(self))
+    end
+  end
+
+  local function drawFooter(self)
+    C.footerBox()
+    if self.footer then Font.draw(self.footer, C.LEFT, C.FOOTER_TEXT_Y) end
+    -- more below: the marker every other list uses, in the margin the counts
+    -- leave free
+    if self.scroll + self.rows < #self.items then
+      Font.drawCode(Theme.moreArrow, C.RIGHT - 8, C.FOOTER_TEXT_Y)
+    end
+  end
+
+  local function drawRow(self, row, item, i)
+    local y = ROW_TOP + (row - 1) * ROW_H
+
+    drawIcon(self.game, item.species, ICON_X, y, item.seen)
+
+    C.black()
+    -- the icon is two tiles tall and the glyphs are one, so the label sits on
+    -- the icon's middle rather than on its top edge
+    local textY = y + TEXT_DY
+    Font.draw(C.truncate(item.label, LABEL_GLYPHS), LABEL_X, textY)
+
+    if item.ball then
+      local by = textY + 3
+      love.graphics.circle("fill", BALL_X, by, BALL_R)
+      C.white()
+      love.graphics.rectangle("fill", BALL_X - BALL_R, by - 0.5, BALL_R * 2, 1)
+      C.black()
+      love.graphics.circle("fill", BALL_X, by, 1.2)
+    end
+
+    if i == self.index then
+      Font.drawCode(Theme.cursor, CURSOR_X, textY)
+    end
+  end
+
   local function draw(self)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.rectangle("fill", 0, 0, 160, 144)
-    ink(BLACK)
-    Font.draw(Strings(self.title), 8, TITLE_Y)
+    C.clear()
+    drawHeader(self)
 
     if #self.items == 0 then
-      Font.draw(Strings("Nothing here."), 16, 64)
-      love.graphics.setColor(1, 1, 1, 1)
+      Font.draw(Strings("Nothing here."), LABEL_X, ROW_TOP + 32)
+      drawFooter(self)
+      C.white()
       return
     end
 
@@ -232,37 +287,17 @@ return function(mod, DexData)
       local i = self.scroll + row
       local item = self.items[i]
       if not item then break end
-      local y = ROW_TOP + (row - 1) * ROW_H
-
-      drawIcon(self.game, item.species, ICON_X, y, item.seen)
-
-      ink(BLACK)
-      -- the icon is two tiles tall and the glyphs are one, so the label sits
-      -- on the icon's middle rather than on its top edge
-      local textY = y + 4
-      Font.draw(item.label, LABEL_X, textY)
-      if item.ball then
-        local bx = LABEL_X + Font.width(item.label) + BALL_GAP
-        local by = textY + 3
-        love.graphics.circle("fill", bx, by, BALL_R)
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.rectangle("fill", bx - BALL_R, by - 0.5, BALL_R * 2, 1)
-        ink(BLACK)
-        love.graphics.circle("fill", bx, by, 1.2)
-      end
-      if i == self.index then
-        Font.drawCode(Theme.cursor, CURSOR_X, textY)
-      end
+      drawRow(self, row, item, i)
     end
 
-    ink(BLACK)
-    if self.footer then Font.draw(self.footer, 8, FOOTER_Y) end
-    -- more below: the same marker every other list uses, in the margin the
-    -- footer leaves free
-    if self.scroll + self.rows < #self.items then
-      Font.drawCode(Theme.moreArrow, 148, FOOTER_Y)
-    end
-    love.graphics.setColor(1, 1, 1, 1)
+    -- The icon column, ruled off from the names.  One hairline the full
+    -- height of the body, the way Gen1BillsBox rules its party pane off from
+    -- its grid -- drawn last so a row's own drawing cannot break it.
+    C.black()
+    C.rule(RULE_X, ROW_TOP, 1, ROWS * ROW_H)
+
+    drawFooter(self)
+    C.white()
   end
 
   -- ------- the screen
@@ -278,8 +313,11 @@ return function(mod, DexData)
     local Vanilla = require("src.ui.PokedexMenu")
     local list = Vanilla.new(game, opts)
 
-    list.wrap = option("wrap", true)          -- UP on the first row wraps
-    list.keyRepeat = option("hold_scroll", true)
+    -- Six rows, not the vanilla seven: the two boxes took a tile row each end.
+    -- Set before the first rebuild, because the scroll clamp reads it.
+    list.rows = ROWS
+    list.wrap = C.option("wrap", true)          -- UP on the first row wraps
+    list.keyRepeat = C.option("hold_scroll", true)
 
     local mode = "num"
 
@@ -312,7 +350,7 @@ return function(mod, DexData)
     rebuild()
 
     list.onSelectKey = function()
-      if not option("view_cycle", true) then return end
+      if not C.option("view_cycle", true) then return end
       local nextMode = DexData.NEXT_MODE[mode]
       local build = DexData.list(game.data, game.save.pokedex, nextMode)
       -- an empty filtered view would strand SELECT: ListMenu returns before
