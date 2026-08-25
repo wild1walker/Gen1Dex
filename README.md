@@ -371,6 +371,28 @@ Whichever wins is written into the `manifest.json` inside the archive, so a
 shipped mod never reports a different version than the release it came from.
 The job refuses to clobber an existing tag or release.
 
+## Credits
+
+By **Wild**.
+
+Built on the screen, palette and registry seams of [Pokemon Gen1Recomp](https://github.com/bryanthaboi/gen1recomp), and on the
+[pret](https://github.com/pret) disassembly of Pokemon Red, Blue and Yellow -- `home/text.asm` is where
+the text box this mod draws into is defined.
+
+**[useful_dex](https://github.com/ShaneMcGovernIE/useful_dex)**, by
+ShaneMcGovernIE, got to this ground first: the stats page, the movelist and the
+three list views were all there before they were here. This mod takes none of
+its code -- the two conflict rather than share -- but the section above
+comparing the two exists because that mod set the bar it is measured against,
+and prior art deserves saying out loud rather than only being differed from.
+
+The optional art this mod draws when it is installed belongs to the people who
+made it: `unique_menu_icons` and `new_icons` for the party icons in the list,
+and the HGSS, Gold/Silver, Crystal and
+`crystal_animated_sprites_with_shiny_visuals` packs for the entry sprites.
+Nothing from any of them is vendored here -- the mod resolves through whatever
+is installed and falls back to the cartridge's own art.
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE).
