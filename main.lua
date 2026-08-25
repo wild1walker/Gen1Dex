@@ -10,6 +10,12 @@
 --   PokedexMenu    the list, with a party icon beside every entry
 --   DexEntryMenu   the entry, as three pages A cycles between
 --
+-- plus the AREA screen behind them (area.lua): opened on a POKéMON you have
+-- never met, and captioned with a line saying how to get there.  A content
+-- mod that adds a spawn hands this screen the words for its own species
+-- through mod.find("Gen1Dex").exports.area.provide -- the dex owns the
+-- surface, and whoever placed the POKéMON owns the sentence.
+--
 -- and the overworld START menu's dex row, renamed to DEX through the
 -- ui.start_menu.items hook rather than by touching the menu itself.
 --
@@ -69,12 +75,26 @@ return function(mod)
     -- wants the 1996 menu with the dex screens changed and nothing else.
     { key = "dex_label", type = "toggle", label = "START SAYS DEX",
       default = true },
+    -- A on an entry you have never met opens AREA on it, where vanilla
+    -- refuses.  Off hands that press back to the engine, which is to say it
+    -- does nothing at all -- the setting for anyone who would rather find
+    -- the ones they have not met the hard way.
+    { key = "area_unseen", type = "toggle", label = "AREA ON UNSEEN",
+      default = true },
+    -- The line under the AREA map: how you catch it, roughly what level, and
+    -- how often.  Off leaves the AREA screen exactly as the cartridge drew
+    -- it, blinking nests and nothing else -- and takes the caption away from
+    -- any mod that registered one, because a player who turned hints off
+    -- turned them off.
+    { key = "area_hints", type = "toggle", label = "AREA HINTS",
+      default = true },
   })
 
   local DexData = loadSibling(mod, "dexdata.lua")
   local makeChrome = loadSibling(mod, "chrome.lua")
   local makeList = loadSibling(mod, "list.lua")
   local makeEntry = loadSibling(mod, "entry.lua")
+  local makeArea = loadSibling(mod, "area.lua")
   if not DexData then return end
 
   -- The chrome is shared by both screens, so it is built once and handed to
@@ -91,11 +111,42 @@ return function(mod)
     return
   end
 
+  -- The AREA surface, built before the list because the list wires its rows
+  -- into it.  Its own failure is survivable in a way the chrome's is not: no
+  -- caption strip and no AREA on an unseen entry still leaves a Pokédex that
+  -- draws, so this logs and carries on rather than returning.
+  local Area
+  if type(makeArea) == "function" then
+    local ok, built = pcall(makeArea, mod, C)
+    if ok and type(built) == "table" then
+      Area = built
+      local installed, err = pcall(Area.install)
+      if not installed then
+        mod.log:error("the AREA screen was not wrapped: %s", tostring(err))
+      end
+      -- Published whether or not the wrap took, because provide() is how
+      -- another mod hands this screen its words and a caller that finds
+      -- nothing to register with has no way to tell "absent" from "broken".
+      mod.exports.area = {
+        provide = Area.provide,
+        caption = Area.caption,
+        probe = Area.probe,
+        -- the budget the SECOND line has, which is the tight one: the box
+        -- puts its blinking prompt in that line's last column.  Published so
+        -- a provider can decide what to leave out rather than have the box
+        -- cut it off mid-word.
+        cols = Area.CAPTION_COLS,
+      }
+    else
+      mod.log:error("the AREA screen did not build: %s", tostring(built))
+    end
+  end
+
   -- Registered independently: a failure building one screen leaves the other
   -- installed and the broken one on the builtin, rather than taking the whole
   -- Pokédex down with it.
   if type(makeList) == "function" then
-    local ok, screen = pcall(makeList, mod, DexData, C)
+    local ok, screen = pcall(makeList, mod, DexData, C, Area)
     if ok and type(screen) == "table" and type(screen.new) == "function" then
       mod.content.screens:register("PokedexMenu", screen)
     else

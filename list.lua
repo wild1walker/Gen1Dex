@@ -1,8 +1,11 @@
 -- Gen1Dex: the Pokédex LIST -- a party icon beside every entry, and three
 -- views to read them in.
 --
--- Returns a factory: factory(mod, DexData, C) -> { new = function(game, opts) },
--- which main.lua installs over the builtin "PokedexMenu" id.
+-- Returns a factory: factory(mod, DexData, C, Area) -> { new = function(game,
+-- opts) }, which main.lua installs over the builtin "PokedexMenu" id.  Area
+-- is area.lua's surface, or nil when it did not build: every row here carries
+-- its species whether it has been discovered or not, and that is what lets A
+-- on an undiscovered entry open AREA on the right POKéMON.
 --
 -- ------- the shape of the screen
 --
@@ -56,7 +59,7 @@
 -- an undiscovered row asks for no species zone and marks no true-colour rect,
 -- because both would repaint what the tint just blacked out.
 
-return function(mod, DexData, C)
+return function(mod, DexData, C, Area)
   local Font = require("src.render.Font")
   local PaletteFX = require("src.render.PaletteFX")
   local PartyMenu = require("src.ui.PartyMenu")
@@ -365,6 +368,11 @@ return function(mod, DexData, C)
 
     -- for the suite, and for anything that wants to know what is on screen
     list.dexMode = function() return mode end
+
+    -- A on an entry you have never met.  Last, so what it wraps is the
+    -- handler this screen is really going to run -- the vanilla one, with
+    -- everything above still in place.
+    if Area then pcall(Area.wireList, game, list, opts) end
 
     return list
   end

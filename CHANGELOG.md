@@ -1,5 +1,52 @@
 # Changelog
 
+## 1.3.0
+
+The AREA screen.
+
+### Added
+
+- **AREA opens on an entry you have never met.** Vanilla's dex side menu
+  returns early unless the entry is seen or owned, which is exactly backwards
+  on the screen a player opens to find out where something lives. Pressing A on
+  a blank row now opens a two-row menu -- `AREA` and `QUIT`, and nothing that
+  would hand over the dex paragraph you have not earned -- and AREA opens on
+  the species the ROW names, which is what makes it survive this mod's own
+  filtered and re-sorted views.
+- **A line under the AREA map saying how to get there**, for all 151. The
+  blinking nests say *where*; they cannot say *in the grass, around level ten,
+  and rare*, and that is the half a player actually needs. It is read straight
+  out of the live encounter tables -- the map where the species has the biggest
+  share of the encounters, that map's own level band, and a rarity worked out
+  from Gen 1's ten slot buckets -- so it is right by construction and costs no
+  data of its own. A species that is wild nowhere is answered out of the
+  evolution table instead: `EVOLVE ODDISH / AT LV21`, `LINK CABLE / ON
+  KADABRA`, `MOON STONE / ON NIDORINO`.
+- **A press takes it away, START brings it back.** The box covers two tile rows
+  of Kanto and one of them has nests in it, so the first A dismisses the hint
+  and the second closes the screen, the way A always did. With the hint down
+  the screen is the plain town map again -- the d-pad moves the cursor and the
+  top strip names the place it is on, where vanilla's AREA branch ignored the
+  d-pad and stopped drawing before either. B still leaves immediately.
+- **A caption hook for other mods**: `mod.find("Gen1Dex").exports.area.provide`
+  takes a function of `(game, species)` and lets a mod answer for its own
+  species. Return two lines to draw them, `false` to withhold an answer that
+  the built-in readings must not fill in for -- a spawn behind an event that has
+  not fired yet -- or `nil` for no opinion. Providers are asked in registration
+  order, first opinion wins, and the readings above are last. Pass your mod id
+  as the second argument and a hot reload replaces your provider instead of
+  stacking a second one.
+- `AREA ON UNSEEN` and `AREA HINTS`, in the mod manager. Both are read when the
+  screen opens rather than once at load, so flipping either shows up the next
+  time you open it.
+
+All of this shipped inside [Gen151](https://github.com/wild1walker/Gen151)
+first, where it had to reach a dex list it did not own by wrapping the vanilla
+constructor and re-deriving each row's species -- which broke the moment a dex
+mod replaced the rows, and this mod replaces them wholesale. The screen belongs
+to whoever draws it. Gen151 1.5.0 keeps only the words for its own spawns and
+hands them over through the hook above.
+
 ## 1.2.0
 
 DEX in the START menu.

@@ -34,7 +34,11 @@ return {
       "evolution labels taken from the merged evolution_methods registry's describe(), so a mod-added evolution method describes itself on this page",
       "optional animated sprites from crystal_animated_sprites_with_shiny_visuals, played on the DEX page when that mod is installed",
       "UP on the first row and DOWN on the last wrap around, and a held direction keeps scrolling",
-      "SPECIES COLOURS, SELECT VIEWS, UP/DOWN SPECIES, LIST WRAPS, HOLD TO SCROLL and START SAYS DEX, in the mod manager",
+      "AREA opens on an entry you have never met -- a two-row AREA / QUIT menu where vanilla's side menu returns early -- on the species the row names rather than the one its position would have named, which is what keeps it right in the A-Z and CAUGHT views",
+      "a line under the AREA map saying how to get there, for all 151: the map where the species has the biggest share of the encounters, that map's own level band and a rarity worked out from Gen 1's ten slot buckets, read out of the live encounter tables, with the evolution table as the fallback for anything that is wild nowhere",
+      "the first A takes that line down and the second closes the screen the way A always did; with it down the AREA screen is the plain town map again, d-pad and name banner included, and START puts the line back",
+      "a caption hook for other mods -- mod.find(\"Gen1Dex\").exports.area.provide -- so a mod that adds a spawn can write the line for its own species, or withhold one for a spawn that is still behind an event",
+      "SPECIES COLOURS, SELECT VIEWS, UP/DOWN SPECIES, LIST WRAPS, HOLD TO SCROLL, START SAYS DEX, AREA ON UNSEEN and AREA HINTS, in the mod manager",
     },
     known = {
       "useful_dex and pokedex_plus are declared conflicts rather than merely incompatible: all three register DexEntryMenu and PokedexMenu, and the last one loaded would win silently",

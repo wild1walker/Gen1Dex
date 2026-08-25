@@ -78,6 +78,81 @@ seen, wrapping at both ends. On MOVES they page the list.
 A move the species gets **STAB** on is marked with a chip in its own type's
 colour, and each type on the STATS page is underlined in its own.
 
+### AREA, on a POKéMON you have never met
+
+Vanilla's dex side menu returns early unless the entry is seen or owned, which
+is exactly backwards on the screen a player opens to find out where something
+lives. Pressing A on a blank row opens a two-row menu — `AREA` and `QUIT`, and
+nothing that would hand over the dex paragraph you have not earned — and AREA
+opens on the species that ROW names, which is what keeps it right in the A-Z
+and CAUGHT views.
+
+And the map it opens gets a line under it saying how to get there, for all 151.
+The blinking nests say *where*; they cannot say *in the grass, around level
+ten, and rare*, which is the half you actually need:
+
+```
++--------------------+
+|                    |
+|      (Kanto, with  |
+|    nests blinking) |
+|                    |
+|                    |
+.--------------------.
+| GRASS  Lv31-33     |
+| UNCOMMON         . |
+'--------------------'
+```
+
+It is read straight out of the live encounter tables — the map where the
+species has the biggest share of the encounters, that map's own level band, and
+a rarity worked out from Gen 1's ten slot buckets — so it is right by
+construction and costs this mod no data of its own. None of it depends on
+having caught the thing. A species that is wild nowhere falls back to the
+evolution table: `EVOLVE ODDISH / AT LV21`, `LINK CABLE / ON KADABRA`, `MOON
+STONE / ON NIDORINO`. If even that has no answer there is no line, and AREA is
+exactly the screen the cartridge shipped.
+
+**A press takes it away, START brings it back.** The box covers two tile rows
+of Kanto and one of them has nests in it, so the first A dismisses the hint and
+the second closes the screen — which is what A always did. With the hint down
+the screen is the plain town map again: the d-pad moves the cursor between
+locations and the top strip names the one you are on, where vanilla's AREA
+branch ignores the d-pad and stops drawing before either. B still leaves
+immediately.
+
+The box is four rows rather than the dialogue box's six. The dialogue box
+double-spaces its lines because it is typing a story at you with nothing behind
+it; this is a two-line label over a map, and the sixteen pixels that buys back
+are two whole tile rows of Kanto.
+
+### Another mod can write that line
+
+A mod that ADDS a spawn knows things the encounter tables cannot carry — the
+tier it rolled the spawn at, the HM the map needs, whether the spawn is behind
+an event that has not fired yet. So it can hand this screen the words instead:
+
+```lua
+local dex = mod.find("Gen1Dex")
+if dex and dex.exports.area then
+  dex.exports.area.provide(function(game, species)
+    if species ~= "SCYTHER" then return nil end        -- no opinion
+    return { "SUPER ROD  Lv15-25", "VERY RARE" }       -- draw these
+  end, mod.id)
+end
+```
+
+Return two lines to draw them, `false` to withhold an answer the built-in
+readings must not fill in for, or `nil` to pass. Providers are asked in
+registration order, the first opinion wins, and the readings above are last, so
+a mod's answer for a species always outranks the generic one. The second
+argument is your mod id: pass it and a hot reload replaces your provider rather
+than stacking a second one closed over the previous load's tables.
+
+[Gen151](https://github.com/wild1walker/Gen151) is the first user of it — it
+captions every spawn it places, and withholds MEW's until the Mansion journals
+have been read.
+
 ### The START menu says DEX
 
 The overworld START menu's first row reads `DEX` rather than `POKéDEX`. The row
@@ -101,6 +176,8 @@ In the mod manager:
 | `LIST WRAPS` | ON | UP on the first row crosses to the last, and back. |
 | `HOLD TO SCROLL` | ON | Hold a direction on the list to keep moving. |
 | `START SAYS DEX` | ON | The overworld START menu's dex row reads `DEX`. Off leaves the engine's `POKéDEX` row alone. |
+| `AREA ON UNSEEN` | ON | A on an entry you have never met opens `AREA` / `QUIT`. Off hands that press back to the engine, which does nothing with it. |
+| `AREA HINTS` | ON | The line under the AREA map. Off leaves that screen exactly as the cartridge drew it — and takes the caption away from any mod that registered one. |
 
 ---
 
@@ -128,6 +205,12 @@ open is worse than a vanilla one.
   pressing A on one does.
 - **`DexEntryMenu`** is a screen of its own, because its first page has to be
   the vanilla page and its other two have to share that page's frame.
+- **`TownMap`** is the one engine screen this mod reaches for directly — it has
+  no hook on it, and the AREA caption has to go somewhere. It is not replaced:
+  `TownMap.new` is wrapped, the original called, and the caption installed as
+  instance fields over the screen it built, so the engine's own `draw` and
+  `update` run untouched underneath. This is what the `engine_internals`
+  permission — the **PATCHES ENGINE CODE** badge in the manager — is for.
 - **The START menu row** is renamed through the engine's `ui.start_menu.items`
   hook, which every built row runs past before the menu opens. The hook calls
   downstream first and then renames what comes back, so a row another mod
@@ -237,6 +320,9 @@ dataset, and drives both screens.
 ```sh
 # from a Gen1Recomp checkout, with this mod at mods/Gen1Dex
 luajit mods/Gen1Dex/tests/gen1dex_test.lua
+
+# the AREA surface: the caption, the presses, the d-pad, the provider hook
+luajit mods/Gen1Dex/tests/area_test.lua
 ```
 
 `GEN1DEX_DIR` overrides where the mod is read from. CI runs the same command on

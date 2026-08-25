@@ -58,3 +58,4 @@ jobs:
           rm -rf engine/mods/Gen1Dex/.git engine/mods/Gen1Dex/.github
           cd engine
           luajit mods/Gen1Dex/tests/gen1dex_test.lua
+          luajit mods/Gen1Dex/tests/area_test.lua
