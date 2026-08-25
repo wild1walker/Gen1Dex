@@ -7,6 +7,21 @@ return {
     .. "the names.",
   author = "wild1walker",
   tags = { "ui", "pokedex", "quality-of-life", "icons" },
+  credits = {
+    { who = "Gen1Recomp", for_ = "the screen, palette and registry seams "
+      .. "this mod is built on" },
+    { who = "pret/pokered", for_ = "home/text.asm, where the box this mod "
+      .. "draws into is defined" },
+    { who = "ShaneMcGovernIE", for_ = "useful_dex, which got to this ground "
+      .. "first -- the stats page, the movelist and the three list views "
+      .. "were all there before they were here.  No code of its is used; the "
+      .. "two conflict rather than share, but prior art is worth saying" },
+    { who = "unique_menu_icons, new_icons, and the HGSS / Gold-Silver / "
+      .. "Crystal sprite packs", for_ = "the optional art this mod draws "
+      .. "when it is installed.  None of it is vendored here" },
+    { who = "Nintendo / Creatures / GAME FREAK", for_ = "Pokemon Red, Blue "
+      .. "and Yellow.  Unofficial fan mod, no affiliation, no endorsement" },
+  },
   compat = { engine = ">=0.0.0-0 <2.0.0", modApi = 2, games = { "gen1" } },
   differences = {
     changed = {
