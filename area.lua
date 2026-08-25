@@ -47,8 +47,8 @@
 --     dex.exports.area.provide(function(game, species)
 --       ...
 --       return { "SUPER ROD  Lv15-25", "VERY RARE" }   -- draw these
---       -- or false                                    -- say nothing at all
---       -- or nil                                      -- no opinion
+--       -- or false                     -- mine, and deliberately unanswered
+--       -- or nil                       -- no opinion
 --     end)
 --   end
 --
@@ -58,6 +58,8 @@
 -- how a mod says "this species is mine and its answer is deliberately
 -- withheld" -- Gen151's MEW, whose whole design is that the dex cannot spoil
 -- the basement -- and it stops the built-ins from answering in its place.
+-- The screen then draws A.UNKNOWN, the same words it draws for a species
+-- nobody has an answer for, which is what keeps a seal from reading as one.
 --
 -- ------- what it costs
 --
@@ -101,6 +103,25 @@ return function(mod, C)
   -- arrow being drawn on top of the last glyph.
   local LINE_COLS = { 18, 17 }
   A.CAPTION_COLS = LINE_COLS[2]
+
+  -- What the box says when NOBODY can answer for a species: the four
+  -- legendaries, which are statics and live in no wild table, a species some
+  -- mod has placed behind an event that has not fired yet, and anything else
+  -- the tables below have nothing on.
+  --
+  -- A blank screen was the old answer, and it is the wrong one twice over.  A
+  -- player who presses AREA on MOLTRES and gets a map with nothing on it
+  -- cannot tell "this mod has no hint for you" from "the hint did not draw" --
+  -- and a POKéDEX that shrugs is still allowed to have a voice while it does
+  -- it.  So the box comes up either way, and says what the game would say.
+  --
+  -- The SAME words for a species nobody knows and a species somebody is
+  -- deliberately withholding (a provider's `false`), which is load-bearing
+  -- rather than lazy: Gen151's MEW is sealed until the Mansion journals are
+  -- read, and a seal that read differently from an ordinary blank would tell
+  -- a player MEW is in there somewhere -- which is precisely the thing the
+  -- seal exists to not say.
+  A.UNKNOWN = { "NO RECORD REMAINS", "GO ADVENTURING!" }
 
   -- The header strip the engine paints across the top of the AREA screen is
   -- 160px wide with its text inset 8px, so 19 columns of room -- and vanilla
@@ -275,6 +296,11 @@ return function(mod, C)
   -- two readings this mod can make on its own.  A provider that throws is
   -- skipped and reported rather than taking the screen down with it: a mod
   -- that cannot caption a species is a missing line, not a broken POKéDEX.
+  --
+  -- nil means NOBODY ANSWERED -- a seal included, since a seal is a refusal to
+  -- answer rather than an answer.  What the screen draws in that case is
+  -- A.UNKNOWN; this function stays the place to ask whether an answer exists
+  -- at all, which is a different question and worth being able to ask.
   function A.caption(game, species)
     for _, entry in ipairs(providers) do
       local ok, answer = pcall(entry.fn, game, species)
@@ -289,7 +315,9 @@ return function(mod, C)
         -- to whatever is left rather than skipping the next provider
         return A.caption(game, species)
       elseif answer == false then
-        -- the seal: this species is somebody's and its answer is withheld
+        -- the seal: this species is somebody's and its answer is withheld.
+        -- No built-in reading gets to fill it in, and the screen says the
+        -- same thing over it that it says over any other blank.
         return nil
       elseif answer ~= nil then
         return clamp(answer)
@@ -330,19 +358,30 @@ return function(mod, C)
     C.white()
   end
 
-  -- The header, repainted ONLY when the engine's own would not have fitted.
-  -- A name short enough to leave vanilla's line alone leaves it alone.
+  -- The header.  Two cases, and vanilla measures neither of them.
+  --
+  --   <NAME>'s NEST      left alone when it fits, shortened when it does not
+  --   <NAME> UNKNOWN     always ours
+  --
+  -- The nest line is the engine's and mostly fits, so it is repainted only
+  -- when it would have run off the edge.  The unknown line never really fitted:
+  -- "<NAME> AREA UNKNOWN" is 12 glyphs plus the name, so every name of 8 or
+  -- more -- MOLTRES, ARTICUNO, CHARIZARD, half the dex -- ran off the right
+  -- edge of the screen mid-word.  AREA is dropped rather than the name
+  -- truncated, because the screen the player is standing on is already called
+  -- AREA and the word was doing no work: what the line has to carry is WHICH
+  -- POKéMON and that nothing is known about it.
   local function headerFor(screen, species)
     local def = screen.game.data.pokemon[species]
     local name = (def and def.name) or species
-    local full = #screen.nests > 0 and (name .. "'s NEST")
-      or (name .. " AREA UNKNOWN")
-    if fits(full, HEADER_COLS) then return nil end
-    -- shortest thing that still says both halves, then the name alone
-    for _, try in ipairs({ name .. " UNKNOWN", name }) do
-      if fits(try, HEADER_COLS) then return try end
+    if #screen.nests > 0 then
+      local nest = name .. "'s NEST"
+      if fits(nest, HEADER_COLS) then return nil end
+      return shorten(nest, HEADER_COLS)
     end
-    return name
+    local unknown = name .. " UNKNOWN"
+    if fits(unknown, HEADER_COLS) then return unknown end
+    return shorten(name, HEADER_COLS)
   end
 
   -- TownMap's own markerXY (src/ui/TownMap.lua:129).  The Kanto art is inset
@@ -394,13 +433,17 @@ return function(mod, C)
       -- read per open rather than once at load, so turning AREA HINTS off in
       -- the manager shows up the next time the screen is opened
       if not C.option("area_hints", true) then return screen end
-      local ok, lines = pcall(A.caption, game, species)
+      local ok, answer = pcall(A.caption, game, species)
       if not ok then
         mod.log:warn("the AREA caption did not build for %s: %s",
-          tostring(species), tostring(lines))
-        return screen
+          tostring(species), tostring(answer))
+        answer = nil
       end
-      if not lines or not lines[1] then return screen end
+      -- No answer is an answer here: see A.UNKNOWN.  Every AREA screen gets
+      -- the box, which is also what makes the header below always ours to
+      -- repaint -- the case that overflowed was exactly the case that used to
+      -- return early.
+      local lines = (answer and answer[1]) and answer or A.UNKNOWN
 
       -- Instance fields shadow the metatable methods, so the engine's own draw
       -- and update run untouched underneath.

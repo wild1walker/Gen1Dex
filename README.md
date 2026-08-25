@@ -110,8 +110,29 @@ a rarity worked out from Gen 1's ten slot buckets — so it is right by
 construction and costs this mod no data of its own. None of it depends on
 having caught the thing. A species that is wild nowhere falls back to the
 evolution table: `EVOLVE ODDISH / AT LV21`, `LINK CABLE / ON KADABRA`, `MOON
-STONE / ON NIDORINO`. If even that has no answer there is no line, and AREA is
-exactly the screen the cartridge shipped.
+STONE / ON NIDORINO`.
+
+**And when nothing can answer, it says so** rather than leaving you looking at
+an empty map:
+
+```
+.--------------------.
+| NO RECORD REMAINS  |
+| GO ADVENTURING!  . |
+'--------------------'
+```
+
+That is what AREA on Articuno, Zapdos, Moltres or Mewtwo draws — the four
+statics live in no wild table, so nobody has ever had a hint for them — and
+what a mod's deliberately withheld species draws too. A blank screen cannot be
+told apart from a broken one.
+
+**The header is measured.** Vanilla writes `<NAME>'s NEST` or `<NAME> AREA
+UNKNOWN` into a 19-column strip without checking either: `MOLTRES AREA UNKNOWN`
+is 20 and ran off the right edge of the screen mid-word. The nest line is left
+alone when it fits and shortened when it does not; the unknown line drops the
+word AREA — the screen is already called AREA and the word was carrying nothing
+— so it reads `MOLTRES UNKNOWN` and fits every name in the dex.
 
 **A press takes it away, START brings it back.** The box covers two tile rows
 of Kanto and one of them has nests in it, so the first A dismisses the hint and
@@ -149,9 +170,14 @@ a mod's answer for a species always outranks the generic one. The second
 argument is your mod id: pass it and a hot reload replaces your provider rather
 than stacking a second one closed over the previous load's tables.
 
+A withheld species gets the `NO RECORD REMAINS` line above — the same one a
+legendary gets. That is deliberate: a seal that read differently from an
+ordinary blank would tell the player there is something there, which is the
+one thing a seal exists not to say.
+
 [Gen151](https://github.com/wild1walker/Gen151) is the first user of it — it
 captions every spawn it places, and withholds MEW's until the Mansion journals
-have been read.
+have been read, so MEW's screen and Moltres's read exactly alike until then.
 
 ### The START menu says DEX
 

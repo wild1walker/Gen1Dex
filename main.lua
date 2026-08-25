@@ -136,6 +136,10 @@ return function(mod)
         -- a provider can decide what to leave out rather than have the box
         -- cut it off mid-word.
         cols = Area.CAPTION_COLS,
+        -- what the box says when nothing answers, so a mod can read it rather
+        -- than guess at it -- and match it, if it wants a blank of its own to
+        -- be indistinguishable from an ordinary one
+        unknown = Area.UNKNOWN,
       }
     else
       mod.log:error("the AREA screen did not build: %s", tostring(built))

@@ -27,9 +27,13 @@ local BOX_X, BOX_Y, BOX_W, BOX_H = 0, 112, 160, 32
 local ARROW_X = (0 + 20 - 2) * 8
 local HEADER_COLS = 19
 
--- A species the fixture has no encounter and no evolution for, so the header
--- test can name it without the two built-in readings answering for it first.
+-- A long name, put on the route so it has a nest to blink: the nest header
+-- is the one vanilla still writes, and the one this has to shorten.
 local LONG = "FIXMONOSAURUS"
+
+-- And a species in no encounter table and no evolution chain -- the shape of
+-- MOLTRES on the real cartridge, and of MEW behind Gen151's gate.
+local NOBODY = "FIXMON_D"
 
 local Data = T.fixtures.fresh()
 Data.pokemon[LONG] = {
@@ -41,6 +45,12 @@ Data.pokemon[LONG] = {
 -- caption to draw: a screen with neither never installs the strip at all
 table.insert(Data.encounters.FIX_ROUTE.grass.slots,
   { level = 9, species = LONG })
+
+Data.pokemon[NOBODY] = {
+  id = NOBODY, index = 5, dex = 5, name = "FIXMON D",
+  types = { "NORMAL" }, evolutions = {},
+  baseStats = { hp = 1, attack = 1, defense = 1, speed = 1, special = 1 },
+}
 
 local run = T.sdk.loadMod(DIR, { data = Data })
 eq(#run.errors, 0, "loads clean (" .. tostring(run.errors[1]) .. ")")
@@ -102,7 +112,46 @@ do
   eq(evolved and evolved[2], "AT LV16", "and what that costs")
 
   eq(area.caption(game, "NOT_A_SPECIES"), nil,
-    "and a species neither table knows is left uncaptioned")
+    "and a species neither table knows has no answer at all")
+  eq(area.caption(game, NOBODY), nil,
+    "nor does one that is in no wild table and evolves from nothing")
+end
+
+-- ------- and what the box says when nobody can answer
+--
+-- A blank screen cannot be told apart from a broken one.  The four
+-- legendaries are statics and live in no wild table, so on the real cartridge
+-- this is what AREA on MOLTRES draws.
+
+do
+  check(type(area.unknown) == "table" and area.unknown[1] ~= nil,
+    "the words for an unanswerable species are published")
+
+  local screen = TownMap.new(game, { nestSpecies = NOBODY })
+  check(rawget(screen, "draw") ~= nil,
+    "a species nobody can answer for still gets the box")
+  screen.game = game
+
+  local drawn = {}
+  local realDraw = Font.draw
+  Font.draw = function(text, x, y)
+    drawn[#drawn + 1] = { text = tostring(text), y = y }
+    return realDraw(text, x, y)
+  end
+  screen:draw()
+  Font.draw = realDraw
+
+  local body = {}
+  for _, d in ipairs(drawn) do
+    if d.y >= 96 then body[#body + 1] = d.text end
+  end
+  eq(body[1], area.unknown[1], "saying so on its first line")
+  eq(body[2], area.unknown[2], "and on its second")
+  for index, line in ipairs(area.unknown) do
+    local budget = index == 1 and 18 or 17
+    check(Font.spansFitting(Font.split(line), budget * 8) >= #Font.split(line),
+      ("and both lines fit the box, unlike %q"):format(line))
+  end
 end
 
 -- ------- and what another mod gets to say
@@ -347,37 +396,44 @@ end
 -- UNKNOWN" is 22 and ran off the right edge of the screen mid-word.
 
 do
-  local drawn
   local realDraw = Font.draw
-  Font.draw = function(text, x, y)
-    if y == 0 then drawn = tostring(text) end
-    return realDraw(text, x, y)
-  end
-  local long = TownMap.new(game, { nestSpecies = LONG })
-  long.game = game
-  long:draw()
-  Font.draw = realDraw
-
-  check(drawn ~= nil, "a header was drawn for a name vanilla would overflow")
-  if drawn then
-    check(Font.spansFitting(Font.split(drawn), HEADER_COLS * 8)
-            >= #Font.split(drawn),
-      ("and it fits the strip, unlike %q"):format(drawn))
-    check(drawn:find(LONG, 1, true) ~= nil,
-      "while still naming the POKéMON, got " .. drawn)
+  local function headerOf(species)
+    local drawn
+    Font.draw = function(text, x, y)
+      if y == 0 then drawn = tostring(text) end
+      return realDraw(text, x, y)
+    end
+    local screen = TownMap.new(game, { nestSpecies = species })
+    screen.game = game
+    screen:draw()
+    Font.draw = realDraw
+    return drawn
   end
 
-  -- a name short enough to leave vanilla's line alone leaves it alone
-  local shortName = TownMap.new(game, { nestSpecies = "FIXMON_A" })
-  shortName.game = game
-  drawn = nil
-  Font.draw = function(text, x, y)
-    if y == 0 then drawn = tostring(text) end
-    return realDraw(text, x, y)
+  -- ---- the nest line is the engine's, and only shortened when it overflows
+  local long = headerOf(LONG)
+  check(long ~= nil, "a nest header was drawn for a name vanilla would "
+    .. "overflow")
+  if long then
+    check(Font.spansFitting(Font.split(long), HEADER_COLS * 8)
+            >= #Font.split(long),
+      ("and it fits the strip, unlike %q"):format(long))
+    check(long:find(LONG, 1, true) ~= nil,
+      "while still naming the POKéMON, got " .. long)
   end
-  shortName:draw()
-  Font.draw = realDraw
-  eq(drawn, nil, "and a name that already fits is left to the engine")
+  eq(headerOf("FIXMON_A"), nil,
+    "and a nest line that already fits is left to the engine")
+
+  -- ---- the unknown line is ALWAYS ours: "<NAME> AREA UNKNOWN" is twelve
+  -- glyphs plus the name, so it ran off the edge for every name of eight or
+  -- more -- MOLTRES, ARTICUNO, half the dex.  AREA is the word that goes:
+  -- the screen is already called AREA and it was carrying nothing.
+  local unknown = headerOf(NOBODY)
+  eq(unknown, "FIXMON D UNKNOWN",
+    "an unknown location says just that, without the AREA that overflowed it")
+  check(Font.spansFitting(Font.split(unknown), HEADER_COLS * 8)
+          >= #Font.split(unknown),
+    "and it fits the strip")
 end
 
 -- ------- A on an entry you have never met

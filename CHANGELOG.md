@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.4.0
+
+What AREA says when there is nothing to say.
+
+### Added
+
+- **A line for a species nobody can answer for.** The four statics live in no
+  wild table and evolve from nothing, so AREA on MOLTRES drew a map with
+  nothing on it -- which cannot be told apart from a hint that failed to draw.
+  The box now comes up either way and says `NO RECORD REMAINS` /
+  `GO ADVENTURING!`.
+
+  A species a mod is deliberately withholding (a provider's `false`) gets the
+  same two lines, which is load-bearing rather than lazy: Gen151 seals MEW
+  until the Mansion journals are read, and a seal that read differently from an
+  ordinary blank would tell the player there is something there. MEW's screen
+  and MOLTRES's are now the same screen to the glyph. The words are published
+  as `exports.area.unknown` for a mod that wants to match them.
+
+### Fixed
+
+- **The AREA header ran off the right edge of the screen.** Vanilla writes
+  `<NAME> AREA UNKNOWN` into a 19-column strip without measuring it:
+  `MOLTRES AREA UNKNOWN` is 20 glyphs, and every name of eight or more -- half
+  the dex -- lost its last word mid-letter.
+
+  The unknown line is this mod's now and drops the word AREA rather than
+  truncating the name: the screen the player is standing on is already called
+  AREA, so the word was carrying nothing, and `MOLTRES UNKNOWN` fits every name
+  in the dex. The nest line (`<NAME>'s NEST`) is still the engine's own and is
+  only repainted when it would have overflowed.
+
+  1.3.0 shortened the header only on a screen that had a caption to draw --
+  and the screens that overflowed were exactly the ones with no caption, so in
+  practice it never fired.
+
 ## 1.3.0
 
 The AREA screen.
