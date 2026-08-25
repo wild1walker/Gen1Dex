@@ -78,6 +78,13 @@ seen, wrapping at both ends. On MOVES they page the list.
 A move the species gets **STAB** on is marked with a chip in its own type's
 colour, and each type on the STATS page is underlined in its own.
 
+### The START menu says DEX
+
+The overworld START menu's first row reads `DEX` rather than `POKéDEX`. The row
+is the engine's own — same place in the list, same key, same screen behind it —
+and nothing else that says POKéDEX moves: the SAVE panel still counts your
+`POKéDEX`, and the list header still names the view you are in.
+
 ---
 
 ## Options
@@ -104,7 +111,8 @@ the game: **MODS → Import mod .zip**.
 
 ## How it works
 
-Two registered screen replacements and nothing else. `Screens.resolve` prefers
+Two registered screen replacements and one renamed START menu row.
+`Screens.resolve` prefers
 the screens registry over the builtin module, so a mod-free boot is untouched
 and a factory that throws degrades to the builtin — which is why every entry
 point in `main.lua` is guarded rather than trusted. A Pokédex that fails to
@@ -117,6 +125,13 @@ open is worse than a vanilla one.
   pressing A on one does.
 - **`DexEntryMenu`** is a screen of its own, because its first page has to be
   the vanilla page and its other two have to share that page's frame.
+- **The START menu row** is renamed through the engine's `ui.start_menu.items`
+  hook, which every built row runs past before the menu opens. The hook calls
+  downstream first and then renames what comes back, so a row another mod
+  inserted survives, and only the label changes — the row keeps its position,
+  its key and its `onSelect`. It is matched on the looked-up label rather than
+  on the English literal, so a translation mod's row is still the row that gets
+  renamed, and the new label is looked up too.
 
 ### The silhouette is a tint, not a palette
 

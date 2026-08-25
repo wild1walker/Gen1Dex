@@ -1,13 +1,17 @@
 -- Gen1Dex: the Pokédex, brought up to the rest of the set.
 --
--- Two registered screen replacements and nothing else.  Screens.resolve
--- prefers the screens registry over the builtin module (src/ui/Screens.lua),
--- so a mod-free boot is untouched and a factory that throws degrades to the
--- builtin -- which is why every entry point here is guarded rather than
--- trusted: a Pokédex that fails to open is worse than a vanilla one.
+-- Two registered screen replacements and one renamed START menu row.
+-- Screens.resolve prefers the screens registry over the builtin module
+-- (src/ui/Screens.lua), so a mod-free boot is untouched and a factory that
+-- throws degrades to the builtin -- which is why every entry point here is
+-- guarded rather than trusted: a Pokédex that fails to open is worse than a
+-- vanilla one.
 --
 --   PokedexMenu    the list, with a party icon beside every entry
 --   DexEntryMenu   the entry, as three pages A cycles between
+--
+-- and the overworld START menu's dex row, renamed to DEX through the
+-- ui.start_menu.items hook rather than by touching the menu itself.
 --
 -- The two sibling files are loaded rather than required because a mod cannot
 -- put itself on package.path: mod:read hands back the file's source from
@@ -102,6 +106,31 @@ return function(mod)
       mod.log:error("the dex entry did not build: %s", tostring(screen))
     end
   end
+
+  -- The START menu row that opens the list reads DEX rather than POKéDEX.
+  -- The engine builds that row as Strings("POKéDEX") and runs the finished
+  -- list through ui.start_menu.items before the menu opens
+  -- (src/ui/StartMenu.lua), so the row is renamed on the way past rather
+  -- than by rebuilding the menu: its onSelect, its position and every other
+  -- row are left exactly as the engine made them.  next() first and then
+  -- decorate, so a mod that inserts a row of its own still gets one.
+  --
+  -- Matched on the looked-up label rather than on the English literal, so a
+  -- translation mod's row is still the row that gets renamed -- and the new
+  -- label goes through Strings too, so that mod can name it in its own
+  -- language.  Nothing else that says POKéDEX moves: the SAVE panel's dex
+  -- count and the list's own header are separate text.
+  mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
+    local out = next(game, items)
+    if type(out) ~= "table" then return out end
+    local ok, Strings = pcall(require, "src.core.Strings")
+    if not ok then return out end
+    local vanilla, short = Strings("POKéDEX"), Strings("DEX")
+    for _, item in ipairs(out) do
+      if item.label == vanilla then item.label = short end
+    end
+    return out
+  end)
 
   -- The pure builders, for the suite and for any mod that wants the same
   -- answers this screen is drawing without opening it.

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **The START menu's dex row reads `DEX`.** The overworld menu's first row is
+  renamed through the engine's `ui.start_menu.items` hook: same position, same
+  key, same screen behind it, and every other row untouched. Nothing else that
+  says POKéDEX moves -- the SAVE panel's dex count and the list's own header are
+  separate text.
+
 ## 1.1.0
 
 Spacing, chrome and the page keys.

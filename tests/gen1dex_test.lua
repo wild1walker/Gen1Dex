@@ -762,4 +762,37 @@ do
   T.check(fired, "onDone runs when the entry closes")
 end
 
+-- ------- the START menu row says DEX
+--
+-- Through the engine's own StartMenu rather than the hook alone: what is
+-- being asserted is what the player reads off the overworld menu, and that
+-- is the whole list the engine builds, not the shape of one callback.
+
+do
+  local StartMenu = require("src.ui.StartMenu")
+  local game = fakeGame(SEEN, OWNED)
+  game.save.flags = { EVENT_GOT_POKEDEX = true }
+  game.save.options = {}
+  game.save.pokedex.owned = OWNED
+
+  local menu = StartMenu.new(game)
+  local labels = {}
+  for i, item in ipairs(menu.items) do labels[i] = item.label end
+
+  T.eq(labels[1], "DEX", "the START menu's first row reads DEX")
+  for _, label in ipairs(labels) do
+    T.neq(label, "POK\195\169DEX", "and no row still reads POK\195\169DEX")
+  end
+
+  -- the rename is a rename: every other row, and the order, are untouched
+  -- (no LINK here -- the engine lists that one only with a party)
+  T.same(labels,
+         { "DEX", "POK\195\169MON", "ITEM", "RED", "SAVE", "OPTION", "QUIT" },
+         "the rest of the START menu is exactly as the engine built it")
+
+  -- and it still opens the dex: the row's own onSelect is the engine's
+  menu.items[1].onSelect()
+  T.eq(type(game.stack:top()), "table", "the row still pushes a screen")
+end
+
 T.finish("Gen1Dex")

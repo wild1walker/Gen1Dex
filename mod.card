@@ -19,6 +19,7 @@ return {
       "the list and the entry are drawn over the plain grey ramp rather than the dex's BROWNMON, because a named palette paints shade 1 a colour and the chrome here is meant to read as black line art (SPECIES COLOURS puts the brown back)",
       "the entry's sprite resolves through the BATTLE kind first, with the dex kind as the fallback, so a sprite or animation mod's replacement art is what the page shows",
       "the SEEN / OWN footer counts stay the whole dex's in every view, so they count your Pokedex rather than the filter you are reading it through",
+      "the overworld START menu's dex row reads DEX rather than POKeDEX -- renamed through the ui.start_menu.items hook, so the row keeps its position, its key and its onSelect, and every other row is the engine's own; the SAVE panel's dex count and the list header are separate text and are unchanged",
     },
     added = {
       "an undiscovered species is drawn as a black silhouette -- a draw-time tint rather than a palette zone, which is the only version of it that also holds for an icon mod's authored full-colour art",
