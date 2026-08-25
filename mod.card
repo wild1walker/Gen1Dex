@@ -34,7 +34,7 @@ return {
       "evolution labels taken from the merged evolution_methods registry's describe(), so a mod-added evolution method describes itself on this page",
       "optional animated sprites from crystal_animated_sprites_with_shiny_visuals, played on the DEX page when that mod is installed",
       "UP on the first row and DOWN on the last wrap around, and a held direction keeps scrolling",
-      "SPECIES COLOURS, SELECT VIEWS, UP/DOWN SPECIES, LIST WRAPS and HOLD TO SCROLL, in the mod manager",
+      "SPECIES COLOURS, SELECT VIEWS, UP/DOWN SPECIES, LIST WRAPS, HOLD TO SCROLL and START SAYS DEX, in the mod manager",
     },
     known = {
       "useful_dex and pokedex_plus are declared conflicts rather than merely incompatible: all three register DexEntryMenu and PokedexMenu, and the last one loaded would win silently",

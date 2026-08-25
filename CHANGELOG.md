@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
+
+DEX in the START menu.
 
 ### Changed
 
@@ -9,6 +11,12 @@
   key, same screen behind it, and every other row untouched. Nothing else that
   says POKéDEX moves -- the SAVE panel's dex count and the list's own header are
   separate text.
+
+### Added
+
+- `START SAYS DEX`, in the mod manager. Off hands the engine's row back exactly
+  as it built it. It is read when the menu opens rather than once at load, so
+  flipping it shows up the next time you press START.
 
 ## 1.1.0
 

@@ -64,6 +64,11 @@ return function(mod)
     { key = "wrap", type = "toggle", label = "LIST WRAPS", default = true },
     { key = "hold_scroll", type = "toggle", label = "HOLD TO SCROLL",
       default = true },
+    -- The overworld START menu's dex row reads DEX rather than POKéDEX.
+    -- Off hands the engine's row back exactly as it built it, for anyone who
+    -- wants the 1996 menu with the dex screens changed and nothing else.
+    { key = "dex_label", type = "toggle", label = "START SAYS DEX",
+      default = true },
   })
 
   local DexData = loadSibling(mod, "dexdata.lua")
@@ -123,6 +128,9 @@ return function(mod)
   mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
     local out = next(game, items)
     if type(out) ~= "table" then return out end
+    -- read per open rather than once at load, so flipping START SAYS DEX in
+    -- the manager shows up the next time the menu is opened
+    if not C.option("dex_label", true) then return out end
     local ok, Strings = pcall(require, "src.core.Strings")
     if not ok then return out end
     local vanilla, short = Strings("POKéDEX"), Strings("DEX")

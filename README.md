@@ -85,6 +85,8 @@ is the engine's own — same place in the list, same key, same screen behind it 
 and nothing else that says POKéDEX moves: the SAVE panel still counts your
 `POKéDEX`, and the list header still names the view you are in.
 
+`START SAYS DEX` turns it off, and the row goes back to the word the cart used.
+
 ---
 
 ## Options
@@ -98,6 +100,7 @@ In the mod manager:
 | `UP/DOWN SPECIES` | ON | UP/DOWN on an entry walks the species you have seen. |
 | `LIST WRAPS` | ON | UP on the first row crosses to the last, and back. |
 | `HOLD TO SCROLL` | ON | Hold a direction on the list to keep moving. |
+| `START SAYS DEX` | ON | The overworld START menu's dex row reads `DEX`. Off leaves the engine's `POKéDEX` row alone. |
 
 ---
 

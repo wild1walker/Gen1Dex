@@ -770,11 +770,16 @@ end
 
 do
   local StartMenu = require("src.ui.StartMenu")
-  local game = fakeGame(SEEN, OWNED)
-  game.save.flags = { EVENT_GOT_POKEDEX = true }
-  game.save.options = {}
-  game.save.pokedex.owned = OWNED
 
+  -- the dex row is gated on Oak having handed the thing over
+  local function startGame()
+    local game = fakeGame(SEEN, OWNED)
+    game.save.flags = { EVENT_GOT_POKEDEX = true }
+    game.save.options = {}
+    return game
+  end
+
+  local game = startGame()
   local menu = StartMenu.new(game)
   local labels = {}
   for i, item in ipairs(menu.items) do labels[i] = item.label end
@@ -793,6 +798,19 @@ do
   -- and it still opens the dex: the row's own onSelect is the engine's
   menu.items[1].onSelect()
   T.eq(type(game.stack:top()), "table", "the row still pushes a screen")
+
+  -- START SAYS DEX off hands the engine's row back untouched.  The option is
+  -- read when the menu opens rather than once at load, so the same loaded
+  -- mod answers both ways: mod.options:get reads loader.modOptions.
+  local id = run.mod.manifest.id
+  run.loader.modOptions[id] = { dex_label = false }
+  T.eq(StartMenu.new(startGame()).items[1].label, "POK\195\169DEX",
+       "START SAYS DEX off leaves the engine's row alone")
+
+  run.loader.modOptions[id] = { dex_label = true }
+  T.eq(StartMenu.new(startGame()).items[1].label, "DEX",
+       "and back on renames it again, without a reload")
+  run.loader.modOptions[id] = nil
 end
 
 T.finish("Gen1Dex")
