@@ -1,7 +1,7 @@
 {
   "id": "Gen1Dex",
   "name": "Gen1Dex",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "api": 2,
   "games": [
     "gen1"
@@ -28,6 +28,6 @@
   "permissions": [
     "engine_internals"
   ],
-  "description": "The Pokedex with a POKeMON beside every entry: the party icon to the left of each row, blacked out to a silhouette until you have seen that species, and every one you have in its own colours. Boxed top and bottom like the rest of the set, with the icon column ruled off from the names. SELECT cycles the list between numbered, A-Z and caught only. An entry is three pages LEFT and RIGHT walk between -- the vanilla page with its sprite and description, then base stats with BST, types and evolutions, then the full movelist of level-up moves and TM/HM with same-type moves marked. A on an entry you have never met opens AREA on it, where vanilla refuses, and the AREA map gets a line under it saying how to get there -- read out of the live encounter tables for all 151, and open to any mod that wants to write that line for its own spawns.",
+  "description": "The Pokedex with a POKeMON beside every entry: the party icon to the left of each row, blacked out to a silhouette until you have seen that species, and every one you have in its own colours. Boxed top and bottom like the rest of the set, with the icon column ruled off from the names. SELECT cycles the list between numbered, A-Z and caught only. An entry is three pages LEFT and RIGHT walk between -- the vanilla page with its sprite and description, then base stats with BST, types and evolutions, then the full movelist of level-up moves and TM/HM with same-type moves marked. A on an entry you have never met opens AREA on it, where vanilla refuses, and the AREA map gets a line under it saying how to get there -- read out of the live encounter tables for all 151, and open to any mod that wants to write that line for its own spawns. Catch something new and the prompt asking whether to nickname it keeps that entry up behind it, where vanilla wipes the screen to white.",
   "github": "wild1walker/Gen1Dex"
 }

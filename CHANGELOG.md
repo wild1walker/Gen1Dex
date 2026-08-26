@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.5.0
+
+The nickname prompt, over the entry it just closed.
+
+### Changed
+
+- **A new catch asks for its nickname over the dex entry rather than over a
+  blank white screen.** Catch something the dex has never held and the game
+  shows you its entry, then wipes the screen to white to ask whether you want
+  to name it: `AskName` clears the field before it prints, because the dex page
+  and the battle are two tilemaps and the Game Boy has one of those.
+
+  The page stays up now. Same box, same words, same two rows in the corner --
+  the prompt is the engine's own and nothing about it moves; the only
+  difference is that the POKéMON you are being asked to name is on the screen
+  while you name it.
+
+  It is the same screen rather than a second one built to look like it: a page
+  left on STATS comes back on STATS, no cry plays twice, and no sprite is
+  loaded twice. The one thing put back is the species, because UP/DOWN on an
+  entry walks the ones you have seen and the box is about to ask after a
+  particular POKéMON by name.
+
+  A catch of something the dex already holds never brought a page up and gets
+  the white field it always had -- keeping a page up is one thing, conjuring
+  one in front of a player who was never shown it is another. `NAME OVER DEX`
+  turns the whole thing off.
+
 ## 1.4.0
 
 What AREA says when there is nothing to say.

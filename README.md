@@ -78,6 +78,41 @@ seen, wrapping at both ends. On MOVES they page the list.
 A move the species gets **STAB** on is marked with a chip in its own type's
 colour, and each type on the STATS page is underlined in its own.
 
+### The nickname prompt keeps that entry up
+
+Catch a POKéMON the dex has never held and the game shows you its entry — and
+then wipes the screen to white to ask whether you want to give it a nickname.
+`AskName` clears the field before it prints, because the dex page and the
+battle are two tilemaps and the Game Boy has one.
+
+```
+                    .-------.          .-------.
+                    | >YES  |          | >YES  |
+   (white)          |  NO   |    ->    |  NO   |  (the entry, still there)
+                    '-------'          '-------'
+.--------------------------.    .--------------------------.
+| give a nickname          |    | give a nickname          |
+| to VOLTORB?              |    | to VOLTORB?              |
+'--------------------------'    '--------------------------'
+```
+
+The page stays up now. Same box, same words, same two rows in the corner — the
+prompt is the engine's own and nothing about it moves; the only difference is
+that the POKéMON you are being asked to name is on the screen while you name
+it.
+
+It is the **same screen**, not a second one built to look like it: a page you
+left on STATS comes back on STATS, no cry plays twice, and no sprite is loaded
+twice. The one thing put back is the species, because UP/DOWN on an entry walks
+the ones you have seen and the box is about to ask after a particular POKéMON
+by name.
+
+A catch of something the dex already holds never brought a page up, and gets
+the white field it always had. Keeping a page up is one thing; conjuring one in
+front of a player who was never shown it is another.
+
+`NAME OVER DEX` turns it off.
+
 ### AREA, on a POKéMON you have never met
 
 Vanilla's dex side menu returns early unless the entry is seen or owned, which
@@ -204,6 +239,7 @@ In the mod manager:
 | `START SAYS DEX` | ON | The overworld START menu's dex row reads `DEX`. Off leaves the engine's `POKéDEX` row alone. |
 | `AREA ON UNSEEN` | ON | A on an entry you have never met opens `AREA` / `QUIT`. Off hands that press back to the engine, which does nothing with it. |
 | `AREA HINTS` | ON | The line under the AREA map. Off leaves that screen exactly as the cartridge drew it — and takes the caption away from any mod that registered one. |
+| `NAME OVER DEX` | ON | The nickname prompt after a new catch keeps the dex entry up behind it. Off asks the question over the blank white field `AskName` wipes to. |
 
 ---
 
@@ -237,6 +273,15 @@ open is worse than a vanilla one.
   instance fields over the screen it built, so the engine's own `draw` and
   `update` run untouched underneath. This is what the `engine_internals`
   permission — the **PATCHES ENGINE CODE** badge in the manager — is for.
+- **`BattleState.askNicknameUI`** is the second, and is reached for the same
+  way and for the same reason: it has no hook either, and the prompt after a
+  catch is the one place the dex entry has to survive a screen it does not own.
+  The method is not replaced — the original is called, the box it built is the
+  box that is returned, and the backdrop is installed as instance fields over
+  it. Nothing is pushed on the state stack and nothing is popped off it: a
+  battle's queue waits on being the top of the stack again, so a screen of this
+  mod's own left sitting under the prompt would be a battle that never
+  resumes. A backdrop is worth a great deal less than that.
 - **The START menu row** is renamed through the engine's `ui.start_menu.items`
   hook, which every built row runs past before the menu opens. The hook calls
   downstream first and then renames what comes back, so a row another mod
