@@ -1,4 +1,4 @@
--- Gen1Dex: the nickname prompt, over the entry it just closed.
+-- Gen1Dex: the nickname prompt, over the screen it interrupted.
 --
 -- Returns a factory: factory(mod, C, Entry) -> a table with an install(),
 -- which main.lua calls once the entry screen has been registered.
@@ -20,21 +20,34 @@
 -- the same place, with the same words and the same two rows in the corner; the
 -- only difference is what is behind it.
 --
--- ------- only the catch that brought the page up
+-- ------- whatever was on the screen a frame ago
 --
--- The prompt comes up for every catch; the dex page comes up only for a
--- species the dex has never held.  So this backdrop is armed by the CATCH
--- rather than by the prompt -- pokemon.caught carries `isNew`, which is the
--- same bit the engine queued the dex page on -- and a catch that never showed
--- a page still gets the white field the cartridge drew.  Keeping a page up is
--- one thing; conjuring one in front of a player who was never shown it is
--- another, and it is not what was asked for.
+-- Which is two different screens, because the moment before the question is
+-- two different moments.  The rule is the same one both times: the prompt
+-- keeps what it interrupted.
 --
--- And it is the SAME screen instance, not a fresh one built to look like it:
--- the page a player left on STATS comes back on STATS, no cry plays a second
--- time, and no sprite is loaded twice.  The one thing that is put back is the
--- species, because UP/DOWN on the entry walks the ones you have seen and the
--- box is about to ask after a particular POKéMON by name.
+-- A species the dex has never held was showing its ENTRY -- the page the
+-- engine queues between the catch text and the prompt.  That page stays up.
+-- It is armed by the CATCH rather than by the prompt, off pokemon.caught's
+-- `isNew`, which is the same bit the engine queued the page on; and it is the
+-- SAME screen instance, not a fresh one built to look like it, so a page left
+-- on STATS comes back on STATS, no cry plays a second time and no sprite is
+-- loaded twice.  The one thing put back is the species, because UP/DOWN on
+-- the entry walks the ones you have seen and the box is about to ask after a
+-- particular POKéMON by name.
+--
+-- Anything else was showing the BATTLE, and no dex page was ever part of it.
+-- So the field stays up instead: the player's POKéMON, both status boxes, and
+-- the closed ball resting where the one you just caught was standing.  That
+-- ball is the whole reason this reads as a moment rather than as a menu -- the
+-- GB leaves it in OAM through the caught text and only AskName's ClearSprites
+-- takes it away, so keeping the field means keeping the ball with it, and
+-- putting it back down when the question is answered is the ClearSprites this
+-- did not do.
+--
+-- Conjuring a dex page for the second case was the obvious other answer and it
+-- is the wrong one: a page a player was never shown is not a page being kept
+-- up, and the twelfth ZUBAT does not owe anyone its Pokédex paragraph.
 --
 -- ------- what it costs
 --
@@ -48,6 +61,12 @@
 -- being the top of the stack again (BattleState:updateQueue), and a screen of
 -- this mod's own left sitting under the prompt would be a screen the battle
 -- waits behind forever.  A backdrop is worth a lot less than that.
+--
+-- The two backdrops cost different things.  The entry is DRAWN, over the white
+-- field the engine has already painted -- so a page that throws leaves exactly
+-- the screen the cartridge drew.  The battle is not drawn by anything here at
+-- all: blankForAskName is the engine's own "wipe the field for AskName" flag
+-- and this clears it, which is one boolean saying `do not wipe`.
 
 return function(mod, C, Entry)
   local N = {}
@@ -65,26 +84,29 @@ return function(mod, C, Entry)
   -- VOLTORBs caught in one session are not.
   local pending
 
-  -- ------- what to draw behind the box, if anything
+  -- ------- what the box is asked over
 
-  -- Answers with the entry screen to draw, or nil for the white field the
-  -- cartridge drew.  Spends `pending` either way: one catch, one page, and a
-  -- prompt that declines the backdrop must not leave it armed for the next.
+  -- Answers with the entry screen to draw, the string "battle" for the field
+  -- the POKéMON was caught on, or nil for the white one the cartridge wiped
+  -- to.  Spends `pending` either way: one catch, one page, and a prompt that
+  -- takes the battle must not leave the page armed for the next one.
   function N.backdrop(game, mon)
     local caught = pending
     pending = nil
-    if caught == nil or caught ~= mon then return nil end
     -- read per prompt rather than once at load, so flipping the option in the
     -- manager shows up on the next POKéMON you catch
-    if not C.option("nickname_dex", true) then return nil end
+    if not C.option("nickname_backdrop", true) then return nil end
+    -- no page came up for this catch, so the field it was caught on is what
+    -- the question interrupted
+    if caught == nil or caught ~= mon then return "battle" end
 
     local entry = Entry.recent and Entry.recent()
-    -- Nil is the ordinary answer on a boot where some other mod won the
-    -- DexEntryMenu id: the page that came up was not ours to keep up.
+    -- The ordinary answer on a boot where some other mod won the DexEntryMenu
+    -- id: the page that came up was not ours to keep up, so keep the field.
     if type(entry) ~= "table" or type(entry.draw) ~= "function" then
-      return nil
+      return "battle"
     end
-    if entry.game ~= game then return nil end
+    if entry.game ~= game then return "battle" end
 
     -- UP/DOWN on the entry walks the species you have seen, so the page a
     -- player closes is not necessarily the page that was opened -- and the box
@@ -95,7 +117,7 @@ return function(mod, C, Entry)
       if not ok then
         mod.log:warn("the nickname backdrop did not reopen on %s: %s",
                      tostring(mon.species), tostring(err))
-        return nil
+        return "battle"
       end
     end
     return entry
@@ -117,6 +139,9 @@ return function(mod, C, Entry)
     rawset(BattleState, PRISTINE, original)
 
     BattleState.askNicknameUI = function(battle, mon, displayName)
+      -- read before the original runs, because AskName's ClearSprites is what
+      -- drops the resting ball and the battle backdrop wants it back
+      local ball = battle and battle.lockedBall
       local box = original(battle, mon, displayName)
       local ok, entry = pcall(N.backdrop, battle and battle.game, mon)
       if not ok then
@@ -124,6 +149,30 @@ return function(mod, C, Entry)
         return box
       end
       if not entry or type(box) ~= "table" then return box end
+
+      -- The field, kept rather than wiped.  One flag: blankForAskName is the
+      -- engine's own "wipe for AskName", and clearing it hands the frame back
+      -- to the battle's ordinary draw -- the enemy pic is already hidden
+      -- (SE_HIDE_ENEMY_MON_PIC, in the toss chain), so what comes up is the
+      -- ball where the POKéMON was, which is the picture the question is
+      -- about.
+      if entry == "battle" then
+        if not battle then return box end
+        battle.blankForAskName = false
+        battle.lockedBall = ball
+        -- and ClearSprites, moved to where the sprites are actually finished
+        -- with: the ball comes off the field when the question is answered
+        -- rather than before it is asked.  TextBox calls this plainly, not as
+        -- a method, so an instance field over it is the whole wrap.
+        local baseChoice = box.choice
+        if type(baseChoice) == "function" then
+          box.choice = function(yes)
+            battle.lockedBall = nil
+            return baseChoice(yes)
+          end
+        end
+        return box
+      end
 
       -- Instance fields over the box the engine built, so its own draw runs
       -- untouched underneath -- and the YES/NO, which is a state of its own

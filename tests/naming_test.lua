@@ -1,9 +1,9 @@
 -- Standalone: luajit mods/Gen1Dex/tests/naming_test.lua
 --
 -- The nickname prompt after a catch (naming.lua): the dex entry that stays up
--- behind the box, the catches that do NOT get one, and the promise that the
--- prompt itself is untouched -- same box, same words, same YES/NO, and the
--- engine's own white field still under it.
+-- behind the box for a species the dex has never held, the battle field that
+-- stays up behind it for anything else, and the promise that the prompt itself
+-- is untouched -- same box, same words, same YES/NO.
 --
 -- Run it from a Gen1Recomp checkout with this mod at mods/Gen1Dex, or set
 -- GEN1DEX_DIR to wherever it lives.
@@ -122,7 +122,7 @@ do
   check(type(box) == "table", "the prompt is still a box")
   eq(type(box.choice), "function", "still carrying its YES/NO")
   eq(battle.blankForAskName, true,
-    "and the engine's own white field is still what it lands on")
+    "and the engine's own white field is still the floor it is drawn on")
 
   local drawn = textDrawnBy(box)
   check(drew(drawn, NAME_A), "the entry it just closed is drawn behind it")
@@ -174,11 +174,15 @@ do
   -- the same mon asked after twice: the arming is spent, and a second prompt
   -- is a prompt no dex page came up for
   local again = battle:askNicknameUI(mon, NAME_A)
-  eq(#textDrawnBy(again), 0, "a second prompt gets the white field back")
+  eq(#textDrawnBy(again), 0, "a second prompt draws no page")
   eq(again.sgbPalettes, nil, "and answers for no colours of its own")
+  eq(battle.blankForAskName, false, "it takes the battle instead")
 end
 
--- ------- a species the dex already holds gets the white field
+-- ------- a species the dex already holds keeps the battle instead
+--
+-- No page came up for it, so there is no page to keep up -- and the screen the
+-- question interrupts is the field it was caught on, ball and all.
 
 do
   local game = fakeGame({ FIXMON_A = true })
@@ -186,12 +190,23 @@ do
   entryFactory.new(game, "FIXMON_A")
   caught(mon, false)
 
-  local box = fakeBattle(game):askNicknameUI(mon, NAME_A)
-  eq(#textDrawnBy(box), 0,
-    "no page came up for it, so there is no page to keep up")
+  local battle = fakeBattle(game)
+  local ball = { "the resting closed ball" }
+  battle.lockedBall = ball
+  local box = battle:askNicknameUI(mon, NAME_A)
+
+  eq(battle.blankForAskName, false, "the field is kept rather than wiped")
+  eq(battle.lockedBall, ball,
+    "with the ball AskName's ClearSprites had just taken off it")
+  eq(#textDrawnBy(box), 0, "and no dex page is conjured in front of it")
+  eq(box.sgbPalettes, nil, "the battle owns the colours, as it always did")
+
+  -- and the ClearSprites, moved to where the sprites are finished with
+  box.choice(false)
+  eq(battle.lockedBall, nil, "the ball comes off once the question is answered")
 end
 
--- ------- and so does a prompt for a mon this catch was not about
+-- ------- and a prompt for a mon this catch was not about
 
 do
   local game = fakeGame({ FIXMON_A = true })
@@ -200,8 +215,10 @@ do
   caught(mon, true)
 
   local other = newMon("FIXMON_A")
-  local box = fakeBattle(game):askNicknameUI(other, NAME_A)
+  local battle = fakeBattle(game)
+  local box = battle:askNicknameUI(other, NAME_A)
   eq(#textDrawnBy(box), 0, "the arming is held by identity, not by species")
+  eq(battle.blankForAskName, false, "so that prompt takes the battle")
 end
 
 -- ------- the page comes back on the POKéMON that was caught
@@ -232,16 +249,18 @@ end
 
 do
   local id = run.mod.manifest.id
-  run.loader.modOptions[id] = { nickname_dex = false }
+  run.loader.modOptions[id] = { nickname_backdrop = false }
 
   local game = fakeGame({ FIXMON_A = true })
   local mon = newMon("FIXMON_A")
   entryFactory.new(game, "FIXMON_A")
   caught(mon, true)
 
-  local box = fakeBattle(game):askNicknameUI(mon, NAME_A)
-  eq(#textDrawnBy(box), 0, "NAME OVER DEX off asks over the white field")
+  local battle = fakeBattle(game)
+  local box = battle:askNicknameUI(mon, NAME_A)
+  eq(#textDrawnBy(box), 0, "NAME IN PLACE off asks over the white field")
   eq(box.sgbPalettes, nil, "and takes the colours back with it")
+  eq(battle.blankForAskName, true, "which is the field the engine wiped to")
 
   run.loader.modOptions[id] = nil
 end

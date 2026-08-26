@@ -23,10 +23,23 @@ The nickname prompt, over the entry it just closed.
   entry walks the ones you have seen and the box is about to ask after a
   particular POKéMON by name.
 
-  A catch of something the dex already holds never brought a page up and gets
-  the white field it always had -- keeping a page up is one thing, conjuring
-  one in front of a player who was never shown it is another. `NAME OVER DEX`
-  turns the whole thing off.
+- **And a catch of something the dex already holds keeps the battle.** There is
+  no dex page in that moment -- the game never shows one for a species you
+  already have -- so the question is asked over the screen it did interrupt:
+  the field the POKéMON was caught on, your POKéMON and both status boxes, and
+  the closed ball resting where the one you just caught was standing.
+
+  That ball is the point. The Game Boy leaves it in OAM through the caught text
+  and only `AskName`'s `ClearSprites` takes it away, so keeping the field means
+  keeping the ball with it -- and putting it down once the question is answered
+  is that `ClearSprites`, moved to where the sprites are actually finished
+  with.
+
+  Conjuring a dex page here was the obvious other answer and it is the wrong
+  one: a page a player was never shown is not a page being kept up, and the
+  twelfth ZUBAT does not owe anyone its Pokédex paragraph.
+
+  `NAME IN PLACE` turns both halves off, and the prompt goes back to white.
 
 ## 1.4.0
 
