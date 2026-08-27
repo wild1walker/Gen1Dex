@@ -86,6 +86,32 @@ return function(mod, DexData, C, Area)
 
   local VIEWS = DexData.MODES            -- num, alpha, caught
 
+  -- ------- which engine built the screen underneath
+  --
+  -- The vanilla dex WAS a ListMenu until gen1recomp rewrote it as a screen
+  -- of its own (48d8a4e, "Pokédex CONTENTS screen"), and the two shapes
+  -- disagree about the one field this file has always written:
+  --
+  --   ListMenu     `rows` is a NUMBER the list reads
+  --   PokedexMenu  `rows()` is a METHOD its own syncScroll CALLS
+  --
+  -- so the six-row list this mod wants is asked for differently on each, and
+  -- writing the number over the method is `attempt to call method 'rows'
+  -- (a number value)` the first time the cursor moves -- which is the first
+  -- frame the dex is open and the cursor is anywhere but where it started.
+  --
+  -- Asked once, of the module rather than of an instance, so both answers
+  -- come from the same reading.
+  local Vanilla = require("src.ui.PokedexMenu")
+  local IS_SCREEN = type(Vanilla.rows) == "function"
+
+  -- How many rows are actually on the screen.  Worked out rather than read
+  -- back off the instance, because `rows` is a number on one shape and a
+  -- method on the other and every reader below wants the count.
+  local function visibleRows(screen)
+    return math.min(ROWS, #(screen.items or {}))
+  end
+
   -- ------- the icon
   --
   -- drawIcon wants a MON and this screen has a species: a dex row is a
@@ -197,7 +223,7 @@ return function(mod, DexData, C, Area)
         return PaletteFX.wholeNamed(game.data, "BROWNMON")
       end
       local out = { PaletteFX.whole(PaletteFX.GRAYS) }
-      for row = 1, screen.rows do
+      for row = 1, visibleRows(screen) do
         local item = screen.items[screen.scroll + row]
         -- an undiscovered row is deliberately skipped: it is black by tint,
         -- and a species zone would colour the silhouette back in
@@ -217,11 +243,11 @@ return function(mod, DexData, C, Area)
 
   -- ------- drawing
   --
-  -- A whole replacement for ListMenu:draw rather than a wrap around it: the
-  -- vanilla row prints its label at x=16, which is where the icon now is, so
-  -- there is no version of this that leaves that call in place.  Everything
-  -- else about the list -- input, scrolling, the side menu, SELECT -- is
-  -- still ListMenu's, and is not touched.
+  -- A whole replacement for the vanilla draw rather than a wrap around it:
+  -- the vanilla row prints its label at x=16, which is where the icon now is,
+  -- so there is no version of this that leaves that call in place.  Nothing
+  -- else about the list is replaced -- the side menu, the cursor memory and
+  -- the QUIT path are all still the engine's, and are not touched.
 
   local function activeView(self)
     for i, name in ipairs(VIEWS) do
@@ -245,7 +271,7 @@ return function(mod, DexData, C, Area)
     if self.footer then Font.draw(self.footer, C.LEFT, C.FOOTER_TEXT_Y) end
     -- more below: the marker every other list uses, in the margin the counts
     -- leave free
-    if self.scroll + self.rows < #self.items then
+    if self.scroll + visibleRows(self) < #self.items then
       Font.drawCode(Theme.moreArrow, C.RIGHT - 8, C.FOOTER_TEXT_Y)
     end
   end
@@ -286,7 +312,7 @@ return function(mod, DexData, C, Area)
       return
     end
 
-    for row = 1, self.rows do
+    for row = 1, visibleRows(self) do
       local i = self.scroll + row
       local item = self.items[i]
       if not item then break end
@@ -303,6 +329,107 @@ return function(mod, DexData, C, Area)
     C.white()
   end
 
+  -- ------- three keys the ListMenu used to answer
+  --
+  -- SELECT, wrapping at the ends and hold-to-scroll were opts on the list the
+  -- vanilla dex used to be, so this mod switched them on by writing three
+  -- fields and ListMenu:update did the rest.  The screen that replaced it has
+  -- an update of its own that reads none of them -- which left SELECT VIEWS,
+  -- LIST WRAPS and HOLD TO SCROLL as three rows in the menu that did nothing.
+  --
+  -- So they are answered here, on that screen's own state, and only there:
+  -- on a build whose dex is still a ListMenu the fields work and this is not
+  -- installed.  It is a layer OVER the engine's update rather than a
+  -- replacement for it -- A, B and the page keys are never seen here -- and
+  -- every key it does take is one the engine leaves unbound on this screen
+  -- (SELECT) or one whose press it would have spent doing nothing (UP on the
+  -- first row, DOWN on the last).
+  --
+  -- The numbers are ListMenu's own: sixteen frames before a held key starts
+  -- repeating, then one row every four.
+  local REPEAT_DELAY, REPEAT_RATE = 16, 4
+
+  local function restoreListKeys(list)
+    local baseUpdate = list.update
+    if type(baseUpdate) ~= "function" or type(list.syncScroll) ~= "function" then
+      mod.log:warn("the dex list has no update to layer SELECT and wrapping "
+        .. "over; those settings do nothing on this build")
+      return
+    end
+
+    -- Read once per open, the way every other per-open setting on this screen
+    -- is: a list already on the display does not restring its keys underneath
+    -- the player.
+    local wrap = C.option("wrap", true)
+    local held = C.option("hold_scroll", true)
+    local holdDir, holdFrames = nil, 0
+
+    local function move(self, delta)
+      local n = #self.items
+      if n == 0 then return end
+      if wrap then
+        self.index = ((self.index - 1 + delta) % n) + 1
+      else
+        self.index = math.max(1, math.min(n, self.index + delta))
+      end
+      self:syncScroll()
+    end
+
+    list.update = function(self, dt)
+      local input = self.game and self.game.input
+      if not input or #self.items == 0 then return baseUpdate(self, dt) end
+
+      if self.onSelectKey and input:wasPressed("select") then
+        self.onSelectKey(self.items[self.index], self)
+        return
+      end
+
+      local up, down = input:wasPressed("up"), input:wasPressed("down")
+      if up or down then
+        holdDir, holdFrames = up and "up" or "down", 0
+        -- Only at the ends: everywhere else the engine's own update moves the
+        -- cursor exactly as it always did.
+        if wrap then
+          local n = #self.items
+          if up and self.index == 1 then
+            self.index = n
+            self:syncScroll()
+            return
+          elseif down and self.index == n then
+            self.index = 1
+            self:syncScroll()
+            return
+          end
+        end
+      elseif held and holdDir then
+        -- A held key produces no `wasPressed`, so the update below would have
+        -- nothing to do on this frame either way.
+        if input:isDown(holdDir) then
+          holdFrames = holdFrames + 1
+          local after = holdFrames - REPEAT_DELAY
+          if after >= 0 and after % REPEAT_RATE == 0 then
+            move(self, holdDir == "up" and -1 or 1)
+            return
+          end
+        else
+          holdDir, holdFrames = nil, 0
+        end
+      end
+
+      return baseUpdate(self, dt)
+    end
+
+    -- LEFT/RIGHT page by what is on the screen.  The engine's own pageScroll
+    -- moves by its seven whatever the list is showing, so on a six-row list
+    -- it steps over an entry every press and cannot reach the last one at
+    -- all; the ListMenu this replaced paged by `rows`, which is what this is.
+    list.pageScroll = function(self, dir)
+      local rows = visibleRows(self)
+      if rows == 0 then return end
+      move(self, dir * rows)
+    end
+  end
+
   -- ------- the screen
   --
   -- Built by the VANILLA constructor and then re-dressed, which is what keeps
@@ -313,14 +440,21 @@ return function(mod, DexData, C, Area)
   local List = {}
 
   function List.new(game, opts)
-    local Vanilla = require("src.ui.PokedexMenu")
     local list = Vanilla.new(game, opts)
 
-    -- Six rows, not the vanilla seven: the two boxes took a tile row each end.
-    -- Set before the first rebuild, because the scroll clamp reads it.
-    list.rows = ROWS
-    list.wrap = C.option("wrap", true)          -- UP on the first row wraps
-    list.keyRepeat = C.option("hold_scroll", true)
+    -- Six rows, not the vanilla seven: the two boxes took a tile row each
+    -- end.  Set before the first rebuild, because the scroll clamp is the
+    -- first thing to ask.
+    if IS_SCREEN then
+      -- A method, because that is what the screen's own syncScroll calls --
+      -- and it answers the same `math.min(rows, #items)` the engine's does,
+      -- so an empty or part-filled list clamps the way the engine expects.
+      list.rows = visibleRows
+    else
+      list.rows = ROWS
+      list.wrap = C.option("wrap", true)        -- UP on the first row wraps
+      list.keyRepeat = C.option("hold_scroll", true)
+    end
 
     local mode = "num"
 
@@ -342,8 +476,9 @@ return function(mod, DexData, C, Area)
       end
       -- the restored cursor can sit past the visible rows; clamp the scroll
       -- here so the frame drawn right after this shows the right page
-      if list.index - list.scroll > list.rows then
-        list.scroll = list.index - list.rows
+      local rows = visibleRows(list)
+      if list.index - list.scroll > rows then
+        list.scroll = list.index - rows
       end
     end
 
@@ -356,8 +491,8 @@ return function(mod, DexData, C, Area)
       if not C.option("view_cycle", true) then return end
       local nextMode = DexData.NEXT_MODE[mode]
       local build = DexData.list(game.data, game.save.pokedex, nextMode)
-      -- an empty filtered view would strand SELECT: ListMenu returns before
-      -- onSelectKey when the list is empty, so there would be no way back
+      -- an empty filtered view would strand SELECT: an empty list answers
+      -- nothing but A and B, so there would be no way back
       if #build.items == 0 then return end
       mode = nextMode
       rebuild(build)
@@ -368,6 +503,8 @@ return function(mod, DexData, C, Area)
 
     -- for the suite, and for anything that wants to know what is on screen
     list.dexMode = function() return mode end
+
+    if IS_SCREEN then restoreListKeys(list) end
 
     -- A on an entry you have never met.  Last, so what it wraps is the
     -- handler this screen is really going to run -- the vanilla one, with

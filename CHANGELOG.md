@@ -1,5 +1,52 @@
 # Changelog
 
+## 1.5.1
+
+The POKéDEX crashed the moment the cursor moved.
+
+### Fixed
+
+- **`src/ui/PokedexMenu.lua:116: attempt to call method 'rows' (a number
+  value)`**, in the engine's own `syncScroll`, on the first press of UP or
+  DOWN after the list came up.
+
+  The vanilla dex was a `ListMenu` until Gen1Recomp rewrote it as a screen of
+  its own, and the two shapes disagree about the one field this mod has always
+  written. A `ListMenu` carries `rows` as a number — this list wants six where
+  vanilla shows seven, because the header and footer boxes took a tile row each
+  end — and the screen that replaced it carries `rows()` as a method its own
+  scroll clamp calls. Writing the six over the method left the engine calling
+  a number.
+
+  Which shape the engine has is asked once now, and the six rows are handed
+  over the way that shape asks for them. Nothing changes on a build whose dex
+  is still a list.
+
+- **SELECT VIEWS, LIST WRAPS and HOLD TO SCROLL had gone quiet with it.**
+  `wrap`, `keyRepeat` and `onSelectKey` were `ListMenu` opts, and the screen
+  that replaced it reads none of them — so three rows in this mod's options
+  did nothing at all, and LEFT/RIGHT paged by the engine's seven over a list
+  showing six, stepping past an entry every press and never reaching the last
+  one.
+
+  All four are answered again, as a layer over the engine's update rather than
+  a replacement for it: A, B and the DATA / CRY / AREA / QUIT side menu never
+  reach it, and every key it does take is one the engine leaves unbound here
+  or one whose press it would have spent doing nothing.
+
+### Testing
+
+The suite built the list and read it back and never once ran the screen's own
+`update`, which is how a dex that crashed on the first direction key shipped
+green. `tests/gen1dex_test.lua` now drives the real screen the way a player
+does — press, update, release — over the cursor keys, SELECT, both ends of the
+wrap and a held key's repeat. Against the code this release fixes it stops at
+exactly the reported line.
+
+The row-count assertion asked the list for `rows` as a number, so it was
+reading the very field that moved. It asks the screen instead now, and checks
+both that a short list answers its own length and that a long one stops at six.
+
 ## 1.5.0
 
 The nickname prompt, over the entry it just closed.

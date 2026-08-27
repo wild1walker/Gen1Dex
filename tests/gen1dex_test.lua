@@ -158,6 +158,126 @@ do
   T.eq(list.index, 1, "a species the filter dropped falls back to the first row")
 end
 
+-- ------- the cursor moves
+--
+-- Everything above builds the list and reads it back; none of it ever ran
+-- the screen's own `update`, which is how the dex shipped crashing on the
+-- first press of a direction key and this suite stayed green.
+--
+--   src/ui/PokedexMenu.lua:116: attempt to call method 'rows' (a number value)
+--
+-- The vanilla dex was a `ListMenu` and became a screen of its own, and the
+-- two disagree about `rows`: a number the list reads, a method the screen's
+-- own syncScroll CALLS.  This mod wants six rows where vanilla shows seven,
+-- and wrote that six straight over the method.
+--
+-- So these drive the real screen the way a player does: press, update,
+-- release.  `wasPressed` is a question and not a queue -- src/core/Input.lua
+-- answers it out of a table the frame boundary clears -- and `isDown` is the
+-- separate held state key-repeat reads, so the two are kept apart here.
+
+local function keyboard(game)
+  local pressed, down = {}, {}
+  game.input = {
+    wasPressed = function(_, key) return pressed[key] or false end,
+    isDown = function(_, key) return down[key] or false end,
+  }
+  return {
+    press = function(key) pressed[key], down[key] = true, true end,
+    hold = function(key) down[key] = true end,
+    release = function(key) down[key] = nil end,
+    -- one frame: the screen updates, then the presses age out
+    frame = function(screen) screen:update(0); pressed = {} end,
+  }
+end
+
+do
+  local game = fakeGame(SEEN, OWNED)
+  local list = listFactory.new(game)
+  local keys = keyboard(game)
+
+  -- Whichever shape the engine has, the answer is this mod's six rows capped
+  -- by what is in the list -- three, on the fixture dex.
+  if type(list.rows) == "function" then
+    T.eq(list:rows(), 3, "the screen is asked for its rows and answers three")
+  else
+    T.eq(list.rows, 6, "the list carries six rows as a number")
+  end
+
+  keys.press("down")
+  T.check(pcall(keys.frame, list), "a press of DOWN does not throw")
+  T.eq(list.index, 2, "and moves the cursor one row")
+  keys.release("down")
+
+  keys.press("up")
+  keys.frame(list)
+  T.eq(list.index, 1, "UP comes back")
+  keys.release("up")
+end
+
+do
+  -- SELECT through the screen's own update, not by calling the handler: the
+  -- routing is the half that broke, and the handler was already covered.
+  local game = fakeGame(SEEN, OWNED)
+  local list = listFactory.new(game)
+  local keys = keyboard(game)
+
+  keys.press("select")
+  keys.frame(list)
+  T.eq(list.dexMode(), "alpha", "SELECT reaches the view cycle through update")
+  keys.release("select")
+end
+
+do
+  -- LIST WRAPS: UP on the first row crosses to the last, DOWN on the last
+  -- comes back.  151 rows is a long way to hold a key for the far end.
+  local game = fakeGame(SEEN, OWNED)
+  local list = listFactory.new(game)
+  local keys = keyboard(game)
+
+  keys.press("up")
+  keys.frame(list)
+  T.eq(list.index, #list.items, "UP on the first row wraps to the last")
+  keys.release("up")
+
+  keys.press("down")
+  keys.frame(list)
+  T.eq(list.index, 1, "and DOWN on the last wraps to the first")
+  keys.release("down")
+end
+
+do
+  -- HOLD TO SCROLL: sixteen frames of delay, then a row every four.
+  local game = fakeGame(SEEN, OWNED)
+  local list = listFactory.new(game)
+  local keys = keyboard(game)
+
+  keys.press("down")
+  keys.hold("down")
+  keys.frame(list)
+  T.eq(list.index, 2, "the press itself moves one row")
+
+  for _ = 1, 16 do keys.frame(list) end
+  T.eq(list.index, 3, "a held key starts repeating after the delay")
+
+  keys.release("down")
+  for _ = 1, 8 do keys.frame(list) end
+  T.eq(list.index, 3, "and letting go stops it")
+end
+
+do
+  -- The page keys are the engine's, and reach this mod's own pageScroll.
+  local game = fakeGame(SEEN, OWNED)
+  local list = listFactory.new(game)
+  local keys = keyboard(game)
+
+  keys.press("right")
+  T.check(pcall(keys.frame, list), "a page key does not throw")
+  T.check(list.index >= 1 and list.index <= #list.items,
+          "and leaves the cursor on a row that exists")
+  keys.release("right")
+end
+
 -- ------- the list draws
 
 do
@@ -741,13 +861,30 @@ end
 do
   local game = fakeGame(SEEN, OWNED)
   local list = listFactory.new(game)
-  T.eq(list.rows, 6, "the boxed list draws six rows, not the vanilla seven")
+
+  -- Asked, not read: on the screen the engine has now `rows` is a method,
+  -- and it answers the six capped by however many entries are in the list.
+  -- The fixture dex has three, so a list padded out to seven is what this is
+  -- really guarding -- the vanilla count must never be what comes back.
+  local function rows(screen)
+    if type(screen.rows) == "function" then return screen:rows() end
+    return screen.rows
+  end
+  T.eq(rows(list), math.min(6, #list.items),
+       "the boxed list draws its six rows, not the vanilla seven")
+
+  local padded = listFactory.new(fakeGame(SEEN, OWNED))
+  for i = #padded.items + 1, 9 do
+    padded.items[i] = { label = ("%03d PAD"):format(i), species = "FIXMON_A",
+                        seen = false }
+  end
+  T.eq(rows(padded), 6, "and stops at six once there are more rows than that")
 
   -- the scroll clamp has to agree with the row count, or the cursor walks off
   -- the bottom of the box
-  list.index = 6
-  list.scroll = 0
-  T.check(list.index - list.scroll <= list.rows,
+  padded.index = 6
+  padded.scroll = 0
+  T.check(padded.index - padded.scroll <= rows(padded),
           "six rows of cursor fit without scrolling")
 end
 
