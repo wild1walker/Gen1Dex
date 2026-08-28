@@ -548,10 +548,53 @@ do
   game.press("a"); entry:update(0)
   T.eq(entry.page, "moves", "A moves to the movelist")
   game.press("a"); entry:update(0)
-  T.eq(entry.page, "dex", "and A wraps back to the dex page")
+  T.check(game.stack:top() ~= entry, "and A past the last page closes the entry")
+end
 
+do
+  local game = fakeGame(SEEN, OWNED)
+  local entry = entryFactory.new(game, "FIXMON_A")
+  game.stack:push(entry)
   game.press("b"); entry:update(0)
   T.check(game.stack:top() ~= entry, "B closes the entry from any page")
+end
+
+do
+  -- The page keys still wrap where A stops: LEFT and RIGHT are the page keys
+  -- and a reader who overshoots has to be able to come back round.
+  local game = fakeGame(SEEN, OWNED)
+  local entry = entryFactory.new(game, "FIXMON_A")
+  game.stack:push(entry)
+  game.press("right"); entry:update(0)
+  game.press("right"); entry:update(0)
+  T.eq(entry.page, "moves", "RIGHT reaches the movelist")
+  game.press("right"); entry:update(0)
+  T.eq(entry.page, "dex", "and RIGHT wraps past it rather than closing")
+  T.check(game.stack:top() == entry, "the entry is still up")
+end
+
+do
+  -- Why A has to end somewhere: the lab's starter preview and the Safari
+  -- Zone's signs push this screen and block until it pops itself
+  -- (Commands.push_screen), so the whole script is waiting on the A press
+  -- that leaves.  Vanilla's page popped on A; wrapping forever stranded the
+  -- player at a starter they could not pick.
+  local game = fakeGame(SEEN, OWNED)
+  local entry = entryFactory.new(game, { species = "FIXMON_A",
+                                         forceOwned = true })
+  game.stack:push(entry)
+  entry.desc = { { "PAGE ONE" } }
+  entry.descPage = 1
+
+  local presses = 0
+  while game.stack:top() == entry and presses < 32 do
+    game.press("a"); entry:update(0)
+    presses = presses + 1
+  end
+  T.check(game.stack:top() ~= entry,
+          "A alone gets out of a script-pushed entry")
+  T.check(presses <= 4,
+          "and gets out in a handful of presses, not a lap of the movelist")
 end
 
 do
@@ -569,9 +612,10 @@ do
   game.press("a"); entry:update(0)
   T.eq(entry.page, "stats", "the spent description hands A on")
 
-  -- and coming back round resets the description to its first page
-  game.press("a"); entry:update(0)
-  game.press("a"); entry:update(0)
+  -- and coming back round resets the description to its first page.  The page
+  -- keys carry it round, because A stops at the last page rather than wrapping.
+  game.press("right"); entry:update(0)
+  game.press("right"); entry:update(0)
   T.eq(entry.page, "dex", "back on the dex page")
   T.eq(entry.descPage, 1, "with the description back at its start")
 end

@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.5.2
+
+Two keys that never ended anywhere: A on an entry a script was waiting for,
+and the d-pad on the AREA map.
+
+### Fixed
+
+- **The starter you could not pick.** Oak's lab shows the Pokédex entry for a
+  starter before it asks whether you want it, and the Safari Zone's signs and
+  the S.S. Anne's Snorlax do the same thing on their own species: the script
+  runs `push_screen DexEntryMenu` and then blocks until the screen pops itself
+  (`Commands.push_screen`). The vanilla page popped on A once the description
+  was spent, so A was the key that carried you through the preview and into
+  the question.
+
+  This mod's A advanced instead of ending: DEX to STATS to MOVES and round to
+  DEX again, forever. B still closed the screen, so the way out existed — but
+  a player pressing A at a CHARMANDER they had just been offered got a third
+  page and then the first one back, and nothing ever asked them anything.
+
+  A now walks the entry once and then leaves it. Past the last page it closes,
+  which is what hands the waiting script its answer. LEFT and RIGHT are
+  unchanged and still wrap both ways: they are the page keys, and a reader who
+  overshoots has to be able to come back round.
+
+- **`attempt to call method 'moveGrid' (a nil value)`** on the first d-pad
+  press on the AREA map, once the hint was down.
+
+  1.4.0 gave that screen a cursor you could move, where vanilla ignored the
+  d-pad entirely, and moved it by calling a `moveGrid` on `TownMap`. No
+  version of `TownMap` has one: its d-pad handling is `moveList`, which walks
+  the towns in cursor order on UP and DOWN and does not answer LEFT or RIGHT
+  at all. So the feature was a crash from the day it shipped.
+
+  The snap-to-nearest is this mod's own now, and it snaps to the nearest
+  location **in the direction pressed** rather than the nearest one overall —
+  a cone of 45 degrees either side of the key, off-axis scored harder than
+  distance so the straight neighbour wins a tie. A key with nothing in front
+  of it leaves the cursor where it is; UP and DOWN then fall back to walking
+  the list, so no press is simply swallowed.
+
+### Testing
+
+`area_test` was already asserting that the d-pad moved the cursor, and was
+already red. It was not wired in front of the release (`test.yml` runs beside
+`release.yml`, deliberately), so it stayed red through two releases. Both
+suites now assert the shape of the fix rather than only its effect: that every
+AREA move goes the way the key pointed, and that A alone gets out of a
+script-pushed entry in a handful of presses.
+
 ## 1.5.1
 
 The POKéDEX crashed the moment the cursor moved.
