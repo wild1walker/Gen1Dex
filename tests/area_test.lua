@@ -301,15 +301,31 @@ do
   press("a")
   nav:update(0)                       -- dismiss the hint first
 
-  local moved = {}
+  local DELTA = { down = { 0, 1 }, up = { 0, -1 },
+                  right = { 1, 0 }, left = { -1, 0 } }
+  local moved, wrongWay = {}, {}
   for _, dir in ipairs({ "down", "up", "right", "left" }) do
-    local from = nav.sel
+    local from = nav.locs[nav.sel]
     press(dir)
-    nav:update(0)
-    if nav.sel ~= from then moved[#moved + 1] = dir end
+    -- the crash this replaced: TownMap has no moveGrid, so the first d-pad
+    -- press on the AREA map used to raise rather than move anything
+    local ok, err = pcall(nav.update, nav, 0)
+    check(ok, "nav: " .. dir .. " is answered without raising: " .. tostring(err))
+    local to = nav.locs[nav.sel]
+    if to ~= from then
+      moved[#moved + 1] = dir
+      -- and it has to be a move THAT WAY: nearest in the direction pressed,
+      -- not nearest overall
+      local dx, dy = DELTA[dir][1], DELTA[dir][2]
+      if from.x and to.x then
+        local along = (to.x - from.x) * dx + (to.y - from.y) * dy
+        if along <= 0 then wrongWay[#wrongWay + 1] = dir end
+      end
+    end
   end
   check(#moved > 0,
     "nav: the d-pad moves the selection, where vanilla ignored it")
+  eq(#wrongWay, 0, "nav: and every move goes the way the key pointed")
 
   local strip
   local realDraw = Font.draw
