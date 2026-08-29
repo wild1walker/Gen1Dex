@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.5.3
+
+### Fixed
+
+- **The side menu on a discovered entry had no box.** A on a POKéMON you have
+  met came up as four bare words floating over the list, `QUIT` printed across
+  the SEEN and OWN counts and past the bottom of the screen. A on one you have
+  not met — this mod's own two-row menu — was drawn properly, which is what
+  made it look like the discovered entries were the broken ones.
+
+  Both were the same omission. The vanilla dex prints `DATA` / `CRY` / `AREA` /
+  `QUIT` permanently into the block down the right of its screen, so
+  `PokedexMenu`'s side menu draws the labels and the cursor and nothing else —
+  *"the block is already on screen"*, as its own comment puts it, and in
+  vanilla it is, because the vanilla list drew it. This list does not: the
+  right of the screen is where the names run, and SEEN / OWN moved into a
+  footer box. There was no block for the menu to be the cursor on.
+
+  `chooseEntry` is now run and the menu it pushes is taken rather than shown:
+  its entries go into a box of this mod's own. Nothing about what a press does
+  changes — `DATA` and `CRY` are the engine's closures, not copies, and
+  Yellow's `PRNT` comes along without this mod knowing it exists. The box is
+  bottom-aligned on the last row of the body, so two rows sit exactly where
+  they always have and four grow *upward* into the list rather than down
+  through the footer.
+
+  It is wired whether or not `AREA ON UNSEEN` is on. That row says what A does
+  on a row you have never met; it has nothing to say about whether the menu on
+  a row you have met is drawn inside a frame.
+
+- **The row a side menu is open on reads as hollow.** The engine sets
+  `hollowIndex` on the list when it opens one (`PlaceUnfilledArrowMenuCursor`)
+  and the vanilla list draws the unfilled arrow for it; this list draws its own
+  rows and was answering the solid cursor either way. Two live-looking cursors
+  on one screen is a lie about which one the d-pad is moving.
+
 ## 1.5.2
 
 Two keys that never ended anywhere: A on an entry a script was waiting for,
