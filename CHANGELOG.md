@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.6.1
+
+### Fixed
+
+- **The AREA screen ends on the map.** 1.6.0 took the `AREA UNKNOWN` slab down
+  while the hint strip was up and put it back when `A` dismissed the strip, on
+  the reasoning that it was then the only thing left explaining an empty map.
+  That was backwards: dismissing the strip is a request to *see the map*, and a
+  slab across the middle is the one thing that request cannot have. The route
+  is `DEX`, then `<NAME> UNKNOWN`, then the map — and the map is where it ends.
+  The slab is gone from every frame of this screen now.
+
+- **The player marker is drawn on it.** It lives in the same `if` the slab was
+  the `else` of: with no nests to mark, vanilla puts the slab up *instead* of
+  marking where you are standing (`engine/items/town_map.asm:399-403`). That
+  trade made sense while the slab covered the map. With it gone the screen is a
+  plain town map, and a plain town map has you on it — so the marker goes down
+  through the same two fields and the same offsets the engine would have used,
+  which is also what keeps it whatever art a reskin has put there.
+
 ## 1.6.0
 
 ### Changed
