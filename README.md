@@ -267,11 +267,30 @@ is what reads as the map cycling a list, because for those presses it was. A
 cursor that stays put says "nothing that way" honestly; one that leaps says
 nothing at all.
 
-Only the d-pad is taken over. `B` still closes both screens, the banner is
-still the engine's, and `FLY` is left alone — its cursor cycles the visited
-destinations in fly order and `A` flies to the one it is on, so direction is
-not what that d-pad means. A build with no map art is left alone too: it falls
-through to a list of names, and a list is walked with a list's own keys.
+### FLY is the map, not a list on top of it
+
+`LoadTownMap_Fly` already draws the whole of Kanto and puts a bird on the town
+you have selected — and then walks that selection with `UP` and `DOWN` through
+the **fly order**, which is a list. The picture says "pick a place"; the
+controls say "scroll".
+
+So `FLY` is steered by direction too. Open the map, move to the town you want,
+press `A` to go there.
+
+Nothing about which towns are reachable changes. That set is the engine's
+`locs` on this screen — `LoadTownMap_Fly` has already narrowed it to the towns
+you have actually visited — and it is not widened here, so everywhere the
+cursor can reach is somewhere `A` can take you. `flyMapIds` is indexed by the
+same `sel` the cursor moves, so moving it by direction changes where it goes
+and nothing else: `A` is still the engine's, and it still flies to whatever is
+under the bird.
+
+Only the d-pad is taken over, on all three screens. `B` still closes them, the
+banner is still the engine's, and nothing is drawn over the two that are not
+the dex's. A build with no map art is left alone: `TownMap` falls through to a
+list of names there — and the engine drops to that list itself when any fly
+destination is missing coordinates — and a list is walked with a list's own
+keys.
 
 ### Another mod can write that line
 

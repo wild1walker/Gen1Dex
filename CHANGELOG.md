@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.8.0
+
+### Changed
+
+- **FLY is a map, not a list drawn on a map.** `LoadTownMap_Fly` already shows
+  the whole of Kanto with a bird on the town you have selected — and then walks
+  that selection with `UP` and `DOWN` through the fly order. The picture says
+  "pick a place"; the controls said "scroll".
+
+  It is steered by direction now, like the other two town maps. Open the map,
+  move to the town you want, press `A` to go there.
+
+  Nothing about which towns are reachable changes. That set is the engine's own
+  list for this screen — already narrowed to the towns you have visited — and
+  it is not widened, so everywhere the cursor can reach is somewhere `A` can
+  take you; "pick a spot on the map" never means "pick a spot and be told no".
+  The map ids are indexed by the same cursor the d-pad moves, so `A` is still
+  the engine's and still flies to whatever is under the bird.
+
+  A build with no map art is left alone, as before: the screen falls through to
+  a list of names there — and the engine drops to that list itself when any fly
+  destination is missing coordinates — and a list is walked with a list's keys.
+
 ## 1.7.0
 
 ### Fixed
