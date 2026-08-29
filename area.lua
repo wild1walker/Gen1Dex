@@ -503,18 +503,28 @@ return function(mod, C)
 
       local function drawWithoutUnknownBox(self)
         local realBox, realDraw = Font.drawBox, Font.draw
+        -- The BOX is what identifies the slab, so it is matched on its own
+        -- rect and it is what arms the second stand-in.
+        local dropped = false
         Font.drawBox = function(tx, ty, tw, th, ...)
           if tx == UNKNOWN_BOX[1] and ty == UNKNOWN_BOX[2]
               and tw == UNKNOWN_BOX[3] and th == UNKNOWN_BOX[4] then
+            dropped = true
             return
           end
           return realBox(tx, ty, tw, th, ...)
         end
-        -- By position rather than by the string: the engine writes a bare
-        -- literal there, but a build that translates it still puts it in the
-        -- same place, and nothing else in this branch draws on that pixel.
+        -- The LINE is matched by position rather than by the string -- the
+        -- engine writes a bare literal there, and a build that translates it
+        -- still puts it in the same place -- but only once the box it belongs
+        -- in has actually been dropped in this same pass.  Position alone was
+        -- too wide a net: this stands in for the whole of the engine's draw,
+        -- and another of its paths landing a real line on that pixel would
+        -- have been swallowed with no way to tell.
         Font.draw = function(text, x, y, ...)
-          if x == UNKNOWN_TEXT_X and y == UNKNOWN_TEXT_Y then return end
+          if dropped and x == UNKNOWN_TEXT_X and y == UNKNOWN_TEXT_Y then
+            return
+          end
           return realDraw(text, x, y, ...)
         end
         local ok, err = pcall(baseDraw, self)
