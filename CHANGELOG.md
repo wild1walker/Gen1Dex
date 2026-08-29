@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.6.0
+
+### Changed
+
+- **The `AREA UNKNOWN` slab is gone from the AREA screen.** With no nests to
+  mark, vanilla puts a 17x4 box across the middle of the map
+  (`engine/items/town_map.asm:403`). On this screen that was the third thing
+  saying so at once: the header above it already reads `<NAME> UNKNOWN`, and
+  the strip below carries the half worth reading — `EVOLVE CHARMELEON AT LV36`,
+  or whichever answer the species has. So a screen that *has* an answer was
+  covering half its own map to say it has none.
+
+  It is dropped by not drawing it rather than by painting over it: the map
+  underneath would have to be redrawn to hide it, and redrawing the art to
+  cover one box is more fragile than not putting the box down. `Font.drawBox`
+  and `Font.draw` are stood in for across the engine's draw, the two calls that
+  make that box are recognised by exactly where they land, everything else on
+  the pass goes through untouched, and both are restored whatever happens.
+
+  Only while the strip is up. `A` puts the hint away for a look at the bare
+  map, and with the strip gone that box is the only thing left on screen saying
+  why the map is empty — so there it stays, and `START` brings both back
+  together.
+
 ## 1.5.3
 
 ### Fixed

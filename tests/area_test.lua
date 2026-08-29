@@ -154,6 +154,89 @@ do
   end
 end
 
+-- ------- the vanilla AREA UNKNOWN slab is not drawn over the map
+--
+-- town_map.asm:403 puts a 17x4 box across the middle of the map when there
+-- are no nests to mark.  With this mod's header above it and its strip below,
+-- that is a third thing saying "unknown" at once -- and the only one of the
+-- three that covers the map to say it.
+
+do
+  local screen = TownMap.new(game, { nestSpecies = NOBODY })
+  screen.game = game
+  eq(#screen.nests, 0, "the fixture species has no nests, so vanilla would "
+    .. "put its slab up")
+
+  -- The engine only reaches its AREA branch -- and so its slab -- with the
+  -- real Kanto tilemap loaded, and the ROM-free fixture ships none.  Stand
+  -- one in: love.graphics.draw is a no-op in the harness, so a one-tile map
+  -- is enough to take that path.  Without this the whole block passes on a
+  -- draw that never had a slab in it to drop.
+  screen.mode = "grid"
+  screen.bg = { map = { 1 }, img = {}, quads = { [1] = {} } }
+
+  local function record(self)
+    local boxes, texts = {}, {}
+    local realBox, realDraw = Font.drawBox, Font.draw
+    Font.drawBox = function(tx, ty, tw, th, fill)
+      boxes[#boxes + 1] = { tx, ty, tw, th }
+      return realBox(tx, ty, tw, th, fill)
+    end
+    Font.draw = function(text, x, y)
+      texts[#texts + 1] = { text = tostring(text), x = x, y = y }
+      return realDraw(text, x, y)
+    end
+    self:draw()
+    Font.drawBox, Font.draw = realBox, realDraw
+    return boxes, texts
+  end
+
+  local function drewSlab(boxes)
+    for _, b in ipairs(boxes) do
+      if b[1] == 1 and b[2] == 7 and b[3] == 17 and b[4] == 4 then return true end
+    end
+    return false
+  end
+  local function drewAt(texts, x, y)
+    for _, t in ipairs(texts) do
+      if t.x == x and t.y == y then return t.text end
+    end
+    return nil
+  end
+
+  local boxes, texts = record(screen)
+  check(not drewSlab(boxes), "the slab is not drawn while the strip is up")
+  eq(drewAt(texts, 16, 72), nil, "nor the words that went in it")
+
+  -- ...and the strip that replaces it is still there, saying the useful half
+  local body = {}
+  for _, t in ipairs(texts) do
+    if t.y >= 96 then body[#body + 1] = t.text end
+  end
+  eq(body[1], area.unknown[1], "the strip still carries the first line")
+  eq(body[2], area.unknown[2], "and the second")
+
+  -- Everything else on the pass is untouched: the stand-in drops two calls,
+  -- not the screen.  The header strip the engine paints is the proof.
+  check(#boxes > 0 or #texts > 2,
+    "and the rest of the screen still draws")
+
+  -- A puts the strip away for a look at the bare map.  With nothing left on
+  -- screen to say why the map is empty, the engine's own box is what says it,
+  -- so there it comes back -- and START brings both back together.
+  press("a")
+  screen:update(1 / 60)
+  pressed = {}
+  boxes, texts = record(screen)
+  check(drewSlab(boxes), "with the strip put away, the engine's box is back")
+
+  press("start")
+  screen:update(1 / 60)
+  pressed = {}
+  boxes = record(screen)
+  check(not drewSlab(boxes), "and START takes it away again with the strip")
+end
+
 -- ------- and what another mod gets to say
 --
 -- The whole reason this is a registry rather than a fixed pair of readings:
