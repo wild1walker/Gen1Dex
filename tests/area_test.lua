@@ -252,6 +252,87 @@ do
     if img == screen.playerSheet then markedPlayer = true end
   end
   check(markedPlayer, "so the marker the engine skipped is drawn here")
+
+end
+
+-- ------- the stand-in drops the slab and nothing else
+--
+-- Hiding the slab means standing in for Font.drawBox and Font.draw across the
+-- WHOLE of the engine's draw.  That is a net over every path that draw can
+-- take, so what it catches has to be the slab and only the slab: the BOX
+-- identifies it, and the line inside is dropped only once that box has been.
+-- Matching the line on its position alone -- which is what this shipped with
+-- first -- would swallow a real line that any other path put on that pixel.
+--
+-- Driven through a stand-in for TownMap.draw itself, captured by the wrap the
+-- same way the engine's own is, so both cases can be posed exactly.
+
+do
+  local realTownMapDraw = TownMap.draw
+  local emit
+  TownMap.draw = function() if emit then emit() end end
+
+  local screen = TownMap.new(game, { nestSpecies = NOBODY })
+  TownMap.draw = realTownMapDraw
+  screen.game = game
+  screen.mode = "grid"
+  screen.bg = { map = { 1 }, img = {}, quads = { [1] = {} } }
+
+  local function pass(body)
+    local seen = {}
+    local realBox, realDraw = Font.drawBox, Font.draw
+    Font.drawBox = function(tx, ty, tw, th)
+      seen[#seen + 1] = { kind = "box", tx = tx, ty = ty, tw = tw, th = th }
+    end
+    Font.draw = function(text, x, y)
+      seen[#seen + 1] = { kind = "text", text = tostring(text), x = x, y = y }
+    end
+    emit = body
+    screen:draw()
+    emit = nil
+    Font.drawBox, Font.draw = realBox, realDraw
+    return seen
+  end
+
+  local function sawText(seen, text)
+    for _, d in ipairs(seen) do
+      if d.kind == "text" and d.text == text then return true end
+    end
+    return false
+  end
+  local function sawSlabBox(seen)
+    for _, d in ipairs(seen) do
+      if d.kind == "box" and d.tx == 1 and d.ty == 7 and d.tw == 17
+          and d.th == 4 then
+        return true
+      end
+    end
+    return false
+  end
+
+  -- the slab, exactly as town_map.asm:403 draws it: both calls go
+  local slab = pass(function()
+    Font.drawBox(1, 7, 17, 4)
+    Font.draw(" AREA UNKNOWN", 16, 72)
+  end)
+  check(not sawSlabBox(slab), "the slab's box is dropped")
+  check(not sawText(slab, " AREA UNKNOWN"), "and the line inside it")
+
+  -- the same pixel, with no slab box in front of it.  This is the line the
+  -- first version of the stand-in would have swallowed.
+  local other = pass(function()
+    Font.draw("SOMETHING ELSE", 16, 72)
+  end)
+  check(sawText(other, "SOMETHING ELSE"),
+    "a line on the same pixel with no slab box before it survives")
+
+  -- and a box that is not the slab is left alone
+  local box = pass(function()
+    Font.drawBox(0, 0, 20, 18)
+    Font.draw("A REAL LINE", 16, 72)
+  end)
+  check(sawText(box, "A REAL LINE"),
+    "a box that is not the slab does not arm the drop either")
 end
 
 -- ------- and what another mod gets to say

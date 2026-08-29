@@ -194,10 +194,18 @@ comes from. So a screen that *has* an answer was covering half its own map to
 say it has none.
 
 It is dropped by not drawing it rather than by painting over it: `Font.drawBox`
-and `Font.draw` are stood in for across the engine's draw, the two calls that
-make that box are recognised by exactly where they land, and everything else on
-the pass goes through untouched. Both are restored whatever happens, so an
-error inside the engine's draw cannot leave the font module stubbed.
+and `Font.draw` are stood in for across the engine's draw and the two calls
+that make that box are dropped. Both are restored whatever happens, so an error
+inside the engine's draw cannot leave the font module stubbed.
+
+**What the stand-in catches is the slab and only the slab.** The *box* is what
+identifies it, matched on its own tile rect; the line inside is matched by
+position — the engine writes a bare literal there, and a build that translates
+it still puts it in the same place — but only once that box has been dropped in
+the same pass. Matching the line on position alone is a net over every path the
+engine's draw can take, and 1.6.0 and 1.6.1 shipped with exactly that net. It
+caught nothing then, because no other path lands on that pixel today. It was
+one engine change from silently swallowing a real line.
 
 On every frame of this screen, not only the ones with the strip up. `A` puts
 the hint away for a look at the bare map — that is the whole point of the press

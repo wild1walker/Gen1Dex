@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.6.2
+
+### Fixed
+
+- **The stand-in that hides the `AREA UNKNOWN` slab now catches the slab and
+  only the slab.** Hiding it means standing in for `Font.drawBox` and
+  `Font.draw` across the *whole* of the engine's draw, which is a net over
+  every path that draw can take. 1.6.0 and 1.6.1 matched the line inside the
+  slab on its screen position alone. Nothing else lands on that pixel today, so
+  it caught nothing it should not have — but it was one engine change away from
+  silently swallowing a real line, with no way to tell from the screen.
+
+  The *box* is what identifies the slab now, matched on its own tile rect, and
+  the line inside is dropped only once that box has been dropped in the same
+  pass. A line on the same pixel with no slab box in front of it survives, and
+  so does one under a box that is not the slab.
+
 ## 1.6.1
 
 ### Fixed
