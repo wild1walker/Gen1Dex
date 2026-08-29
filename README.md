@@ -288,6 +288,24 @@ open is worse than a vanilla one.
   and the `QUIT` path exactly as they were: this mod has an opinion about how
   the list looks and which entries are in it, and none at all about what
   pressing A on one does.
+
+  It does have one about the box that menu is drawn in, because there was not
+  one. The vanilla list prints `DATA` / `CRY` / `AREA` / `QUIT` permanently
+  into the block down the right of its screen, so `chooseEntry`'s menu draws
+  the labels and the cursor and nothing else — *"the block is already on
+  screen"*, as its own comment says, and in vanilla it is. Here it is not: the
+  right of the screen is where the names run and `SEEN` / `OWN` moved into a
+  footer box, so the menu came up as four bare words over the rows with `QUIT`
+  printed across the counts.
+
+  So `chooseEntry` is **run** and the menu it pushes is taken rather than
+  shown. Its entries are the engine's own closures — `DATA` and `CRY` are not
+  rebuilt here, and Yellow's `PRNT` comes along without this mod knowing it
+  exists — and they go into a box drawn where this mod draws its own: bottom
+  aligned on the last row of the body, so two rows sit where they always have
+  and four grow *upward* into the list instead of down through the footer.
+  Everything else `chooseEntry` does still happens on the way past, which is
+  the hollow cursor it leaves on the row the menu was opened from.
 - **`DexEntryMenu`** is a screen of its own, because its first page has to be
   the vanilla page and its other two have to share that page's frame.
 - **`TownMap`** is the one engine screen this mod reaches for directly — it has

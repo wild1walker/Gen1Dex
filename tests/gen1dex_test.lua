@@ -300,6 +300,50 @@ do
   T.check(pcall(list.draw, list), "a list of nothing but blanks still draws")
 end
 
+-- ------- the cursor goes hollow while the side menu owns the d-pad
+--
+-- engine/menus/pokedex.asm PlaceUnfilledArrowMenuCursor: the row a menu was
+-- opened on stops reading as live, because the d-pad is moving the OTHER
+-- cursor now.  The vanilla list does it off `hollowIndex`, which the engine's
+-- own chooseEntry sets on the way past; this list draws its own rows, so it
+-- has to answer the field itself or the row lies about which cursor UP moves.
+
+do
+  local Theme = require("src.ui.Theme")
+  local game = fakeGame(SEEN, OWNED)
+  local list = listFactory.new(game)
+  local codes = {}
+  local realDrawCode = Font.drawCode
+  Font.drawCode = function(code, x, y)
+    codes[#codes + 1] = code
+    return realDrawCode(code, x, y)
+  end
+  local ok = pcall(list.draw, list)
+  Font.drawCode = realDrawCode
+  T.check(ok, "the list draws")
+  local function drew(code)
+    for _, c in ipairs(codes) do if c == code then return true end end
+    return false
+  end
+  T.check(drew(Theme.cursor), "the row it is on carries the solid cursor")
+  T.check(not drew(Theme.cursorHollow), "and no hollow one, with no menu up")
+
+  codes = {}
+  list.hollowIndex = list.index
+  realDrawCode = Font.drawCode
+  Font.drawCode = function(code, x, y)
+    codes[#codes + 1] = code
+    return realDrawCode(code, x, y)
+  end
+  ok = pcall(list.draw, list)
+  Font.drawCode = realDrawCode
+  T.check(ok, "and draws with a menu up")
+  T.check(drew(Theme.cursorHollow),
+    "where the row it was opened on goes hollow")
+  T.check(not drew(Theme.cursor),
+    "and the solid one is gone, rather than both being on screen")
+end
+
 -- ------- the silhouette, which is the whole point of the icons
 --
 -- The fixture dataset ships no icons table, so PartyMenu.drawIcon returns at

@@ -482,6 +482,11 @@ do
     "and whose second is QUIT -- DATA on a POKéMON you have never met would "
       .. "hand over the dex paragraph, which nobody asked for")
 
+  -- and the row it was opened on goes hollow underneath it, the way the
+  -- engine's own side menu leaves the row it was opened on
+  eq(list.hollowIndex, list.index,
+    "with the row it came from reading as hollow while it is up")
+
   -- and AREA opens the map on the species the ROW named, not on whatever
   -- species sits at that position in the vanilla dex order
   local before = #unseen.stack.states
@@ -495,6 +500,82 @@ do
   local report = area.probe(unseen)
   check(type(report) == "string" and report:find("unseen rows", 1, true),
     "and the probe reports the chain as live: " .. tostring(report))
+end
+
+-- ------- A on an entry you HAVE met: the engine's menu, in a box
+--
+-- PokedexMenu's side menu draws its labels and its cursor and nothing else,
+-- because the vanilla list has already printed DATA / CRY / AREA / QUIT into
+-- the block down the right of the screen -- "the block is already on screen",
+-- as chooseEntry puts it.  This list has no such block, so the engine's menu
+-- came up as four bare words over the rows, QUIT printed across the footer.
+
+do
+  local Screens = require("src.ui.Screens")
+  local met = fakeGame({ FIXMON_A = true }, { FIXMON_A = true })
+  local list = Screens.get(met, "PokedexMenu").new(met, {})
+
+  local known
+  for _, item in ipairs(list.items or {}) do
+    if item.value then known = item break end
+  end
+  check(known ~= nil, "the list has a discovered entry in it")
+
+  list.onChoose(known, list)
+  local menu = met.stack:top()
+  check(menu ~= nil, "choosing it opens a menu")
+
+  -- The entries are the ENGINE's -- this mod rebuilds none of them, so DATA
+  -- and CRY (and Yellow's PRNT) keep doing whatever the engine does.
+  local labels = {}
+  for _, entry in ipairs((menu or {}).items or {}) do
+    labels[#labels + 1] = entry.label
+  end
+  eq(table.concat(labels, ","), "DATA,CRY,AREA,QUIT",
+    "carrying the engine's own rows, not a copy of them")
+
+  -- The fix itself: a box, and one that is on the screen.  The engine
+  -- replaces its side menu's draw with a label-and-cursor one; ours must not
+  -- be that, or there is no frame around any of this.
+  eq(rawget(menu, "draw"), nil,
+    "drawn as an ordinary boxed menu rather than as labels on a block that "
+      .. "is not there")
+  check(type(menu.ty) == "number" and type(menu.th) == "number",
+    "with a box of its own")
+  check(menu.ty >= 3, "starting below the header box")
+  check(menu.ty + menu.th <= 15,
+    "and ending above the footer, where QUIT used to be printed across "
+      .. "SEEN and OWN")
+  check(menu.tx >= 0 and menu.tx + menu.tw <= 20,
+    "and inside the screen from side to side")
+
+  -- Four rows grow UPWARD from the same bottom edge two rows sit on, so the
+  -- menu never moves the row it is anchored to.
+  eq(menu.ty + menu.th, 14, "bottom-aligned on the last row of the body")
+
+  -- Everything chooseEntry does besides the push still happened on the way
+  -- through: the chosen row goes hollow while the menu owns the d-pad.
+  eq(list.hollowIndex, list.index,
+    "and the row it was opened on reads as hollow underneath it")
+
+  -- The engine's actions are the engine's: DATA still opens the dex entry.
+  local before = #met.stack.states
+  menu.items[1].onSelect()
+  check(#met.stack.states > before, "DATA opens a screen")
+
+  -- An undiscovered row in the same list is the other menu, and it has not
+  -- moved: two entries sit where they always have.
+  local unknown
+  for _, item in ipairs(list.items or {}) do
+    if not item.value then unknown = item break end
+  end
+  if unknown then
+    while met.stack:top() do met.stack:pop() end
+    list.onChoose(unknown, list)
+    local small = met.stack:top()
+    eq(small and small.ty, 8, "the two-row menu is where it always was")
+    eq(small and small.th, 6, "and the size it always was")
+  end
 end
 
 -- ------- and both halves can be turned off
@@ -526,6 +607,24 @@ do
     list.onChoose(blank, list)
     eq(unseen.stack:top(), nil, "which is to say it opens nothing, as vanilla")
   end
+  -- ...but the box is not an option this mod offers.  AREA ON UNSEEN says
+  -- what A does on a row you have never met; it has nothing to say about
+  -- whether the menu on a row you HAVE met is drawn inside a frame.
+  local seenRow
+  for _, item in ipairs(list.items or {}) do
+    if item.value then seenRow = item break end
+  end
+  if seenRow then
+    list.onChoose(seenRow, list)
+    local menu = unseen.stack:top()
+    check(menu ~= nil, "a discovered entry still opens its menu")
+    eq(menu and rawget(menu, "draw"), nil,
+      "and it is still boxed with the row turned off")
+    check(menu and menu.ty + menu.th <= 15,
+      "and still ends above the footer")
+    while unseen.stack:top() do unseen.stack:pop() end
+  end
+
   local report = area.probe(unseen)
   check(type(report) == "string" and report:find("AREA ON UNSEEN", 1, true),
     "and the probe says which option turned it off: " .. tostring(report))
