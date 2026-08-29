@@ -221,20 +221,37 @@ do
   check(#boxes > 0 or #texts > 2,
     "and the rest of the screen still draws")
 
-  -- A puts the strip away for a look at the bare map.  With nothing left on
-  -- screen to say why the map is empty, the engine's own box is what says it,
-  -- so there it comes back -- and START brings both back together.
+  -- A puts the strip away for a look at the bare map, and that look is the
+  -- end of the route: DEX, then "<NAME> UNKNOWN", then the map.  A slab
+  -- across the middle of it is the one thing that look cannot have, so it
+  -- does not come back.
   press("a")
   screen:update(1 / 60)
   pressed = {}
   boxes, texts = record(screen)
-  check(drewSlab(boxes), "with the strip put away, the engine's box is back")
+  check(not drewSlab(boxes), "and it does not come back when the strip goes")
+  eq(drewAt(texts, 16, 72), nil, "nor the words that went in it")
 
-  press("start")
-  screen:update(1 / 60)
-  pressed = {}
-  boxes = record(screen)
-  check(not drewSlab(boxes), "and START takes it away again with the strip")
+  -- The engine skips the player marker in the same branch the slab was in --
+  -- with no nests it puts the slab up INSTEAD of marking where you stand.
+  -- With the slab gone the map is a plain town map, and a plain town map has
+  -- you on it.
+  screen.playerLoc = { x = 4, y = 5 }
+  screen.playerSheet = { sheet = true }
+  screen.playerQuad = { quad = true }
+  local drew = {}
+  local realImageDraw = love.graphics.draw
+  love.graphics.draw = function(img, ...)
+    drew[#drew + 1] = img
+    return realImageDraw(img, ...)
+  end
+  screen:draw()
+  love.graphics.draw = realImageDraw
+  local markedPlayer = false
+  for _, img in ipairs(drew) do
+    if img == screen.playerSheet then markedPlayer = true end
+  end
+  check(markedPlayer, "so the marker the engine skipped is drawn here")
 end
 
 -- ------- and what another mod gets to say

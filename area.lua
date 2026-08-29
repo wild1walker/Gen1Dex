@@ -493,10 +493,11 @@ return function(mod, C)
       -- are put back whatever happens, so an error inside the engine's draw
       -- cannot leave the font module stubbed for the rest of the game.
       --
-      -- Only while the strip is up.  A puts the hint away for a look at the
-      -- bare map, and with the strip gone the box is the only thing left on
-      -- the screen saying why the map is empty -- so there it stays, and
-      -- START brings both back together.
+      -- On every frame of this screen, not only the ones with the strip up.
+      -- A puts the hint away for a look at the bare map -- that is the whole
+      -- point of the press -- and a slab across the middle of the map is the
+      -- one thing that look cannot have.  The route is DEX, then
+      -- "<NAME> UNKNOWN", then the map; the map is where it ends.
       local UNKNOWN_BOX = { 1, 7, 17, 4 }
       local UNKNOWN_TEXT_X, UNKNOWN_TEXT_Y = 16, 72
 
@@ -522,10 +523,27 @@ return function(mod, C)
       end
 
       screen.draw = function(self)
-        if showing and #(self.nests or {}) == 0 then
+        local bare = #(self.nests or {}) == 0
+        if bare then
           drawWithoutUnknownBox(self)
         else
           baseDraw(self)
+        end
+        -- The engine draws the player marker in the same `if` the slab was
+        -- the else of: with no nests it puts the slab up INSTEAD of marking
+        -- where you are standing (town_map.asm:399-403).  That trade made
+        -- sense while the slab covered the map.  With the slab gone the map
+        -- is a plain town map, and a plain town map has you on it -- so the
+        -- marker the engine skipped is drawn here, through the same two
+        -- fields and the same offsets it would have used.
+        if bare and drawsOwnChrome(self) and self.playerLoc
+            and self.playerSheet then
+          local x, y = markerXY(self.playerLoc)
+          C.white()
+          love.graphics.draw(self.playerSheet, self.playerQuad, x - 4, y - 3)
+          if type(self.markPlayerRedraw) == "function" then
+            pcall(self.markPlayerRedraw, self, x - 4, y - 3)
+          end
         end
         if showing then
           if header then drawHeader(header) end

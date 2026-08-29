@@ -199,9 +199,19 @@ make that box are recognised by exactly where they land, and everything else on
 the pass goes through untouched. Both are restored whatever happens, so an
 error inside the engine's draw cannot leave the font module stubbed.
 
-Only while the strip is up. `A` puts the hint away for a look at the bare map,
-and with the strip gone that box is the only thing left saying why the map is
-empty — so there it stays, and `START` brings both back together.
+On every frame of this screen, not only the ones with the strip up. `A` puts
+the hint away for a look at the bare map — that is the whole point of the press
+— and a slab across the middle is the one thing that look cannot have. The
+route is `DEX`, then `<NAME> UNKNOWN`, then the map; the map is where it ends.
+
+**And the marker the engine skipped is drawn.** The player marker lives in the
+same `if` the slab was the `else` of: with no nests, vanilla puts the slab up
+*instead* of marking where you are standing
+(`engine/items/town_map.asm:399-403`). That trade made sense while the slab
+covered the map. With it gone the screen is a plain town map, and a plain town
+map has you on it — so the marker goes down here, through the same two fields
+and the same offsets the engine would have used, which is also what keeps it
+whatever art a reskin has put there.
 
 **The header is measured.** Vanilla writes `<NAME>'s NEST` or `<NAME> AREA
 UNKNOWN` into a 19-column strip without checking either: `MOLTRES AREA UNKNOWN`
