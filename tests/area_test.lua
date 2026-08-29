@@ -675,6 +675,97 @@ do
   eq(table.concat(flew, ","), "VERMILION",
     "and A flies to the town under the cursor rather than to a list position")
 
+  -- ---- A on the AREA map, over a town you can fly to, IS a flight
+  --
+  -- The AREA screen is the town map.  If the party can FLY and the cursor is
+  -- over somewhere flyable, closing it to open the START menu and pick FLY to
+  -- reach the same map again is the screen being pedantic about which door
+  -- you came in by.
+  --
+  -- Which towns qualify is the ENGINE's rule, rebuilt in the mod because
+  -- buildFlyList is a local: visited, has a fly warp, and is a fly town.  The
+  -- fixture stands those three up so the rule has something to say yes and no
+  -- to.
+  local realMaps = Data.maps
+  local realFlyOrder = Data.field.flyOrder
+  local realFlyWarps = Data.field.flyWarps
+  Data.maps = Data.maps or {}
+  for _, id in ipairs({ "PALLET", "VIRIDIAN", "PEWTER", "VERMILION" }) do
+    Data.maps[id] = Data.maps[id] or { id = id, index = 1, tileset = "OVERWORLD" }
+  end
+  Data.field.flyOrder = { "PALLET", "VIRIDIAN", "PEWTER", "VERMILION" }
+  Data.field.flyWarps = { PALLET = true, VIRIDIAN = true, PEWTER = true }
+
+  local flownTo = {}
+  local overworld = {
+    map = { id = "ROUTE_1", def = { id = "ROUTE_1", tileset = "OVERWORLD" } },
+    partyKnows = function(_, move) return move == "FLY" end,
+    flyTo = function(_, mapId) flownTo[#flownTo + 1] = mapId end,
+  }
+  game.overworld = overworld
+  game.save.visited = { PALLET = true, VIRIDIAN = true, PEWTER = true,
+                        VERMILION = true }
+
+  local function areaOver(townName)
+    -- the overworld sits under the screen, the way it does in the game
+    while game.stack:top() do game.stack:pop() end
+    game.stack:push(overworld)
+    local screen = TownMap.new(game, { nestSpecies = "FIXMON_A" })
+    screen.game = game
+    screen.bg = screen.bg or { map = {} }
+    game.stack:push(screen)
+    press("a") screen:update(0) pressed = {}      -- hint down
+    check(selectByName(screen, townName), "the cursor is on " .. townName)
+    return screen
+  end
+
+  local sky2 = areaOver("VIRIDIAN CITY")
+  press("a")
+  sky2:update(0)
+  pressed = {}
+  eq(table.concat(flownTo, ","), "VIRIDIAN",
+    "A over a flyable town flies there from the AREA map")
+  eq(game.stack:top(), overworld,
+    "and the screens above the overworld are gone with it")
+
+  -- VERMILION is visited and is a fly town, but has no fly warp -- so the
+  -- engine would not have offered it, and neither does this.  A closes the
+  -- screen instead, which is what A always did.
+  flownTo = {}
+  local noWarp = areaOver("VERMILION CITY")
+  local depthBefore = #game.stack.states
+  press("a")
+  noWarp:update(0)
+  pressed = {}
+  eq(#flownTo, 0, "a town with no fly warp is not flown to")
+  check(#game.stack.states < depthBefore,
+    "and A closes the screen the way it always did")
+
+  -- ...and with no FLY in the party, nothing flies from anywhere
+  flownTo = {}
+  overworld.partyKnows = function() return false end
+  local noFly = areaOver("VIRIDIAN CITY")
+  press("a")
+  noFly:update(0)
+  pressed = {}
+  eq(#flownTo, 0, "and a party that cannot FLY does not fly")
+  overworld.partyKnows = function(_, move) return move == "FLY" end
+
+  -- the row turns it off, and A goes back to closing
+  flownTo = {}
+  run.loader.modOptions[run.mod.manifest.id] = { area_fly = false }
+  local offScreen = areaOver("VIRIDIAN CITY")
+  press("a")
+  offScreen:update(0)
+  pressed = {}
+  eq(#flownTo, 0, "FLY FROM AREA off leaves A closing the screen")
+  run.loader.modOptions[run.mod.manifest.id] = {}
+
+  while game.stack:top() do game.stack:pop() end
+  game.overworld = nil
+  Data.maps = realMaps
+  Data.field.flyOrder = realFlyOrder
+  Data.field.flyWarps = realFlyWarps
   Data.field.townMap = realTownMap
 end
 
