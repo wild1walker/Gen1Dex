@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.7.0
+
+### Fixed
+
+- **The d-pad moves around the map instead of cycling a list.** `UP` and `DOWN`
+  fell back to the engine's `moveList` whenever there was nothing in the
+  direction pressed — so a press off any edge of Kanto, and there are four
+  edges' worth of those, jumped the cursor to wherever the **cursor order**
+  went next (`data/maps/town_map_order.asm`). That order is the order the towns
+  come up in the story, not where they are, so the cursor leapt across the map
+  for reasons nothing on screen could explain. That is what reads as the map
+  cycling a list: for those presses it was.
+
+  The note over `moveGrid` already promised the opposite — *"a key with nothing
+  in front of it does nothing, the cursor stays where it is instead of leaping
+  across Kanto"* — and the fallback underneath it did the leaping. The note is
+  now true. A cursor that stays put says "nothing that way" honestly; one that
+  leaps says nothing at all.
+
+### Changed
+
+- **The map you open from the bag is steered the same way.** Same screen, same
+  picture, and until now a different d-pad: the engine walks its cursor along
+  the story's visit order with `UP` and `DOWN` and ignores `LEFT` and `RIGHT`,
+  so moving around Kanto meant stepping through a list that has nothing to do
+  with where anything is. One map should navigate one way however it was
+  opened.
+
+  Only the d-pad. `B` still closes it, the banner is still the engine's, and
+  nothing is drawn over it — that screen is not this mod's to redress, only to
+  make navigable. `FLY` is left alone: its cursor cycles the visited
+  destinations in fly order and `A` flies to the one it is on, so direction is
+  not what that d-pad means. A build with no map art is left alone too.
+
 ## 1.6.2
 
 ### Fixed
