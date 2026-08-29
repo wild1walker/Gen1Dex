@@ -241,6 +241,38 @@ double-spaces its lines because it is typing a story at you with nothing behind
 it; this is a two-line label over a map, and the sixteen pixels that buys back
 are two whole tile rows of Kanto.
 
+### Direction, not the visit order
+
+`TownMap` walks its cursor along the engine's **cursor order**
+(`data/maps/town_map_order.asm`) with `UP` and `DOWN`, and ignores `LEFT` and
+`RIGHT` entirely — `engine/items/town_map.asm:74`. That order is the order the
+towns come up in the story, not where they are, so walking it with a d-pad is
+the map answering a question nobody asked: `DOWN` from Pallet lands wherever
+the list goes next, which is across Kanto as often as not.
+
+Both maps are steered by direction here: the AREA screen with its hint down,
+and the plain map you open from the bag. One map, one way of moving around it.
+
+The move is nearest **in that direction** — a cone of 45° either side of the
+key, so `LEFT` off Pallet Town reaches the coast rather than the town one row
+up that happens to be fewer cells away. Off-axis is scored harder than distance
+so the straight neighbour wins a tie, and a key with nothing in front of it
+does nothing: the cursor stays put.
+
+That last part used to be a lie. `UP` and `DOWN` fell back to `moveList` when
+the cone came up empty, on the reasoning that a d-pad press should never be
+simply swallowed — so a press off any edge of Kanto, and there are four edges'
+worth of those, jumped the cursor to wherever the story order went next. That
+is what reads as the map cycling a list, because for those presses it was. A
+cursor that stays put says "nothing that way" honestly; one that leaps says
+nothing at all.
+
+Only the d-pad is taken over. `B` still closes both screens, the banner is
+still the engine's, and `FLY` is left alone — its cursor cycles the visited
+destinations in fly order and `A` flies to the one it is on, so direction is
+not what that d-pad means. A build with no map art is left alone too: it falls
+through to a list of names, and a list is walked with a list's own keys.
+
 ### Another mod can write that line
 
 A mod that ADDS a spawn knows things the encounter tables cannot carry — the

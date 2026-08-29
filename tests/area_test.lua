@@ -537,6 +537,105 @@ do
   eq(back, 1, "nav: START brings it back over the map it was navigating")
 end
 
+-- ------- direction, not the visit order
+--
+-- TownMap's own d-pad walks its cursor along the ENGINE'S CURSOR ORDER
+-- (data/maps/town_map_order.asm) with UP and DOWN, and ignores LEFT and RIGHT
+-- -- engine/items/town_map.asm:74.  That order is the order the towns come up
+-- in the story, not where they are, so walking it with a d-pad is the map
+-- answering a question nobody asked: DOWN from Pallet lands wherever the list
+-- goes next, which is across Kanto as often as not.
+--
+-- Both maps are steered by direction now: the AREA screen with its hint down,
+-- and the map from the bag.  One map, one way of moving around it.
+
+do
+  -- A spread of places whose CURSOR ORDER is deliberately not their layout,
+  -- so a list walk and a direction walk cannot be confused for one another.
+  -- PEWTER is the top-left corner: nothing is above it and nothing is left of
+  -- it, which is the case the old code answered by leaping down the list.
+  local realTownMap = Data.field.townMap
+  Data.field.townMap = {
+    locations = {
+      PEWTER    = { x = 4,  y = 5,  name = "PEWTER CITY" },
+      CERULEAN  = { x = 10, y = 3,  name = "CERULEAN CITY" },
+      LAVENDER  = { x = 15, y = 6,  name = "LAVENDER TOWN" },
+      VERMILION = { x = 10, y = 9,  name = "VERMILION CITY" },
+      VIRIDIAN  = { x = 4,  y = 9,  name = "VIRIDIAN CITY" },
+      PALLET    = { x = 4,  y = 11, name = "PALLET TOWN" },
+    },
+    -- the story order, which is nothing like the map order
+    cursorOrder = { "PALLET", "VIRIDIAN", "PEWTER", "CERULEAN", "LAVENDER",
+                    "VERMILION" },
+  }
+
+  local function nameAt(screen) 
+    local loc = screen.locs and screen.locs[screen.sel]
+    return loc and loc.name or nil
+  end
+  local function selectByName(screen, want)
+    for i, loc in ipairs(screen.locs or {}) do
+      if loc.name == want then screen.sel = i return true end
+    end
+    return false
+  end
+  local function step(screen, dir)
+    press(dir)
+    screen:update(0)
+    pressed = {}
+    return nameAt(screen)
+  end
+
+  -- ---- the AREA map, hint down
+  local area1 = TownMap.new(game, { nestSpecies = "FIXMON_A" })
+  area1.game = game
+  area1.bg = area1.bg or { map = {} }
+  press("a") area1:update(0) pressed = {}     -- put the hint down
+
+  check(selectByName(area1, "PALLET TOWN"), "the cursor starts on PALLET")
+  eq(step(area1, "up"), "VIRIDIAN CITY",
+    "UP from PALLET reaches the city directly above it")
+  eq(step(area1, "right"), "VERMILION CITY",
+    "RIGHT from VIRIDIAN crosses to VERMILION, which vanilla's d-pad could "
+      .. "not reach at all")
+  eq(step(area1, "up"), "CERULEAN CITY", "UP again goes up the map")
+  eq(step(area1, "right"), "LAVENDER TOWN", "and RIGHT goes right")
+
+  -- the case the fallback used to mangle: a corner, with nothing that way
+  check(selectByName(area1, "PEWTER CITY"), "the cursor moves to the corner")
+  eq(step(area1, "up"), "PEWTER CITY",
+    "UP with nothing above it leaves the cursor where it is")
+  eq(step(area1, "left"), "PEWTER CITY", "and so does LEFT with nothing left")
+  -- ...where it used to fall through to moveList and land wherever the story
+  -- order went next, which is what reads as the map cycling a list
+  eq(step(area1, "down"), "VIRIDIAN CITY",
+    "while a direction that HAS something in it still moves")
+
+  -- ---- and the map from the bag: same screen, same keys, same answers
+  local plain = TownMap.new(game, {})
+  plain.game = game
+  plain.bg = plain.bg or { map = {} }
+  check(rawget(plain, "update") ~= nil,
+    "the map opened from the bag is steered too")
+
+  check(selectByName(plain, "PALLET TOWN"), "starting on PALLET again")
+  eq(step(plain, "up"), "VIRIDIAN CITY", "UP goes up on that map as well")
+  eq(step(plain, "right"), "VERMILION CITY",
+    "and RIGHT moves it, where the engine's own d-pad ignored the key")
+  check(selectByName(plain, "PEWTER CITY"), "and at the corner")
+  eq(step(plain, "up"), "PEWTER CITY", "UP with nothing above it stays put")
+
+  -- B still closes it: only the d-pad was taken over
+  local depth = #game.stack.states
+  press("b")
+  plain:update(0)
+  pressed = {}
+  check(#game.stack.states < depth or depth == 0,
+    "and B still closes the map, because only the d-pad was taken over")
+
+  Data.field.townMap = realTownMap
+end
+
 -- ------- nothing the text draws may reach the column the prompt sits in
 --
 -- The bug this is here for: the second line was budgeted the full 18 columns
