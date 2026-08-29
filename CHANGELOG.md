@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.9.0
+
+### Added
+
+- **`A` on the AREA map flies you there.** The AREA screen is the town map: if
+  the party can `FLY` and the cursor is over somewhere flyable, closing it to
+  open the START menu and pick `FLY` to reach the same picture again is the
+  screen being pedantic about which door you came in by. With the hint down,
+  `A` over a flyable town is now the flight. (`A` with the hint up still takes
+  the strip down; the press after that is this one.)
+
+  Which towns qualify is the engine's own rule — visited, has a fly warp, is a
+  fly town — rebuilt here because `buildFlyList` is a local in `TownMap`.
+  Nothing is widened: a town this says yes to is a town the `FLY` screen would
+  have offered.
+
+  Every condition is a reason to fall through rather than to fail. No `FLY` in
+  the party, indoors, the cursor on somewhere unflyable, no overworld under the
+  screen — any of them and `A` closes the screen the way it always did.
+
+  New row: `FLY FROM AREA`, on by default.
+
 ## 1.8.0
 
 ### Changed

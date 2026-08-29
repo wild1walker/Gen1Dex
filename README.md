@@ -267,6 +267,32 @@ is what reads as the map cycling a list, because for those presses it was. A
 cursor that stays put says "nothing that way" honestly; one that leaps says
 nothing at all.
 
+### And A on the AREA map flies
+
+The AREA screen *is* the town map. If the party can `FLY` and the cursor is
+over somewhere flyable, then the answer to "can I go there" is yes — and making
+you close the screen, open the START menu and pick `FLY` to reach the same
+picture again is the screen being pedantic about which door you came in by.
+
+So with the hint down, `A` over a flyable town is the flight. (`A` with the
+hint *up* still means "I have read this" and takes the strip down; the press
+after that is this one.)
+
+Which towns qualify is the engine's rule, rebuilt here because `buildFlyList`
+is a local in `TownMap`: **visited**, **has a fly warp**, and **is a fly town**.
+Nothing is widened — a town this says yes to is a town the `FLY` screen would
+have offered you.
+
+Every condition is a reason to fall through rather than to fail. No `FLY` in
+the party, indoors, the cursor on somewhere unflyable, no overworld under the
+screen: any of them and `A` closes the screen the way it always did. None of
+them is an error and none of them says so. The screens between the map and the
+overworld are popped before the flight — the dex you came through is what you
+are leaving — and if the overworld is not under there at all, nothing is
+unwound and nothing flies.
+
+`FLY FROM AREA` turns it off.
+
 ### FLY is the map, not a list on top of it
 
 `LoadTownMap_Fly` already draws the whole of Kanto and puts a bird on the town
