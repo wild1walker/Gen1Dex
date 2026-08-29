@@ -633,6 +633,48 @@ do
   check(#game.stack.states < depth or depth == 0,
     "and B still closes the map, because only the d-pad was taken over")
 
+  -- ---- and FLY: the map is the picker
+  --
+  -- LoadTownMap_Fly narrows `locs` to the towns actually visited and indexes
+  -- `flyMapIds` by the same `sel`, then walks that list with UP and DOWN.  So
+  -- moving the cursor by direction instead changes where it goes and nothing
+  -- else: A still flies to whatever is under it, and the cursor is still only
+  -- ever over somewhere flyable.
+  --
+  -- The fly list is stood in rather than grown out of the fixture -- it wants
+  -- flyOrder, flyWarps, a visited set and map defs that pass Map.isFlyTown --
+  -- but everything downstream of it is real: the wrap's own update, and the
+  -- engine's underneath it, which is what answers A.
+  local flew = {}
+  local sky = TownMap.new(game, {})
+  sky.game = game
+  sky.bg = sky.bg or { map = {} }
+  sky.fly = true
+  sky.onFly = function(mapId) flew[#flew + 1] = mapId end
+  sky.locs = {
+    { x = 4,  y = 11, name = "PALLET TOWN" },
+    { x = 4,  y = 9,  name = "VIRIDIAN CITY" },
+    { x = 4,  y = 5,  name = "PEWTER CITY" },
+    { x = 10, y = 9,  name = "VERMILION CITY" },
+  }
+  sky.flyMapIds = { "PALLET", "VIRIDIAN", "PEWTER", "VERMILION" }
+  sky.sel = 1
+
+  check(rawget(sky, "update") ~= nil, "the FLY map is steered too")
+  eq(nameAt(sky), "PALLET TOWN", "FLY opens on the first destination")
+  eq(step(sky, "up"), "VIRIDIAN CITY", "UP moves up the map, not up a list")
+  eq(step(sky, "right"), "VERMILION CITY",
+    "and RIGHT reaches a town the fly order would have made you scroll past")
+  eq(step(sky, "right"), "VERMILION CITY",
+    "with nothing further right, the cursor stays on it")
+
+  -- A is the engine's, and it flies to whatever the cursor is on
+  press("a")
+  sky:update(0)
+  pressed = {}
+  eq(table.concat(flew, ","), "VERMILION",
+    "and A flies to the town under the cursor rather than to a list position")
+
   Data.field.townMap = realTownMap
 end
 
