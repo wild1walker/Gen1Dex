@@ -144,7 +144,19 @@ local STAT_KEYS = {
   { key = "SPC", field = "special" },
 }
 
-function DexData.stats(data, def)
+-- What the dex prints in place of a name it has not earned.  One token
+-- everywhere: the INSPECT list, and now the evolution rows.
+local UNSEEN_NAME = "?????"
+
+local function seenBy(save, species)
+  if type(save) ~= "table" then return true end
+  local dex = save.pokedex
+  if type(dex) ~= "table" then return false end
+  return (dex.owned and dex.owned[species]) and true
+    or (dex.seen and dex.seen[species]) and true or false
+end
+
+function DexData.stats(data, def, save)
   data = data or {}
   def = def or {}
   local bs = def.baseStats or {}
@@ -166,9 +178,17 @@ function DexData.stats(data, def)
       end
     end
     local target = data.pokemon and data.pokemon[evo.species]
+    local name = (target and target.name) or evo.species
+    -- What it becomes is a spoiler until you have met one.  The dex prints
+    -- "EVOLVES / LEVEL 16 / IVYSAUR" on a BULBASAUR the moment it is caught,
+    -- which hands over the next two names of every line in the game -- so an
+    -- unseen target is masked exactly the way the list masks it, and the row
+    -- still says HOW and WHEN.  Ask for the mask by passing a save; a caller
+    -- that does not is unchanged.
+    if save and not seenBy(save, evo.species) then name = UNSEEN_NAME end
     evolutions[#evolutions + 1] = {
       method = evo.method, label = label, species = evo.species,
-      name = (target and target.name) or evo.species,
+      name = name,
     }
   end
 

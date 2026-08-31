@@ -1,7 +1,7 @@
 {
   "id": "Gen1Dex",
   "name": "Gen1Dex",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "api": 2,
   "games": [
     "gen1"

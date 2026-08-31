@@ -103,6 +103,9 @@ return function(mod)
     -- available, so nothing is ever swallowed.
     { key = "area_fly", type = "toggle", label = "FLY FROM AREA",
       default = true },
+    -- Off takes the FLY row off that map's menu and nothing else: INSPECT is
+    -- still there, and MAP INSPECT below still governs the menu itself.
+    -- Neither toggle can switch the other off.
     -- The nickname prompt after a catch keeps the screen it interrupted --
     -- the dex entry for a species the dex has never held, the battle it was
     -- caught on for anything else -- rather than the white field AskName
@@ -112,6 +115,20 @@ return function(mod)
     -- engine's own either way.
     { key = "nickname_backdrop", type = "toggle", label = "NAME IN PLACE",
       default = true },
+    -- A on a town-map location opens a small menu -- INSPECT, and FLY as well
+    -- when there is somewhere under the cursor to fly to -- instead of the
+    -- press doing one fixed thing.  INSPECT lists what lives there, richest
+    -- share first, off the live encounter tables, with the dex's own caught
+    -- ball and the dex's own silence about anything you have not seen.
+    --
+    -- All three maps, the AREA screen included: it is the same picture with a
+    -- species pinned to it, the cursor is on a town while you read it, and
+    -- going out to the BAG for the same map to ask what lives there was the
+    -- screen being pedantic about which door you came in by.  Off leaves A
+    -- exactly as it was -- nothing at all on the BAG's map, the flight on the
+    -- other two.
+    { key = "map_inspect", type = "toggle", label = "MAP INSPECT",
+      default = true },
   })
 
   local DexData = loadSibling(mod, "dexdata.lua")
@@ -119,6 +136,7 @@ return function(mod)
   local makeList = loadSibling(mod, "list.lua")
   local makeEntry = loadSibling(mod, "entry.lua")
   local makeArea = loadSibling(mod, "area.lua")
+  local makeInspect = loadSibling(mod, "inspect.lua")
   local makeNaming = loadSibling(mod, "naming.lua")
   if not DexData then return end
 
@@ -140,9 +158,35 @@ return function(mod)
   -- into it.  Its own failure is survivable in a way the chrome's is not: no
   -- caption strip and no AREA on an unseen entry still leaves a Pokédex that
   -- draws, so this logs and carries on rather than returning.
+  -- INSPECT rides the town map rather than the dex, but it is the dex's
+  -- question asked from the other end -- the same encounter walk, the same
+  -- tiers, the same caught ball and the same silence -- so it is built here
+  -- and its failure is survivable in the same way the AREA screen's is: a
+  -- town map with A doing what it always did is still a town map.
+  local Inspect
+  if type(makeInspect) == "function" then
+    local ok, built = pcall(makeInspect, mod, C)
+    if ok and type(built) == "table" then
+      Inspect = built
+      local installed, err = pcall(Inspect.install)
+      if not installed then
+        mod.log:error("map INSPECT was not wrapped: %s", tostring(err))
+      end
+      mod.exports.inspect = {
+        roster = Inspect.roster,
+        mapsFor = Inspect.mapsFor,
+        detail = Inspect.detail,
+      }
+    else
+      mod.log:error("map INSPECT did not build: %s", tostring(built))
+    end
+  end
+
   local Area
   if type(makeArea) == "function" then
-    local ok, built = pcall(makeArea, mod, C)
+    -- Inspect goes in because A over the AREA map opens ITS menu; nil is
+    -- allowed and means the map keeps the press it had before.
+    local ok, built = pcall(makeArea, mod, C, Inspect)
     if ok and type(built) == "table" then
       Area = built
       local installed, err = pcall(Area.install)

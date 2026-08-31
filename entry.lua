@@ -59,6 +59,24 @@
 -- "the type colours are not palette colours" below.
 
 return function(mod, DexData, C)
+
+  -- ------- the matte behind true-colour art
+  --
+  -- A marked rectangle is blitted RAW, so the white page under a sprite's
+  -- transparent margin stays white when everything around it goes black.
+  -- Painting what the theme will make of that spot first is the fix; under
+  -- LIGHT the colour is white, which is what this drew before themes existed.
+  --
+  -- Only ever inside a rectangle about to be marked: a dark rectangle
+  -- anywhere else is shade-3 pixels, which the theme maps to the page's ink.
+  local function matte(x, y, w, h)
+    local theme = type(mod.theme) == "function" and mod.theme() or nil
+    local colour = theme and type(theme.matte) == "function"
+      and theme.matte() or nil
+    if type(colour) ~= "table" then return end
+    love.graphics.setColor(colour[1] / 255, colour[2] / 255, colour[3] / 255, 1)
+    love.graphics.rectangle("fill", x, y, w, h)
+  end
   local Font = require("src.render.Font")
   local PaletteFX = require("src.render.PaletteFX")
   local Sound = require("src.core.Sound")
@@ -263,7 +281,7 @@ return function(mod, DexData, C)
     self.sprite = ok and image or nil
     self.spriteTrueColor = (ok and trueColor) and true or false
 
-    self.stats = DexData.stats(game.data, self.def)
+    self.stats = DexData.stats(game.data, self.def, game.save)
     self.owned = self.forceOwned
       or (game.save.pokedex and game.save.pokedex.owned[species]) or false
     self.desc = DexData.description(game.data, self.def, self.owned)
@@ -498,6 +516,10 @@ return function(mod, DexData, C)
     -- a small sprite pinned to the floor of the well left all of its slack in
     -- one stripe above it.
     local x, y, scale, dw, dh = C.fit(w, h, PIC_X, PIC_Y, PIC_SPAN, PIC_SPAN)
+    -- the page under the sprite, before the sprite: the rect below is blitted
+    -- raw, so the cleared white inside it survives a dark page otherwise
+    if self.spriteTrueColor then matte(x, y, dw, dh) end
+    C.white()
     love.graphics.draw(sprite, x, y, 0, scale, scale)
     if self.spriteTrueColor then
       -- the DRAWN rect, not the file's: a scaled sprite marked at its file

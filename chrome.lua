@@ -31,6 +31,31 @@ return function(mod)
   local C = {}
 
   C.BLACK = { 0, 0, 0 }
+
+  -- ------- a name the dex has not earned
+  --
+  -- One token and one predicate, shared by every screen that prints a species
+  -- it might not have met: the AREA header, and the INSPECT list that opens
+  -- it.  The AREA screen is reachable for an unseen POKeMON two ways -- the
+  -- AREA ON UNSEEN row, and an evolution the entry screen is showing -- and
+  -- both printed "CHARIZARD UNKNOWN" over the map, which hands over the name
+  -- the rest of the screen is carefully not telling you.
+  --
+  -- Owned implies seen: the dex sets both, but a save restored from an older
+  -- build may carry only one, and a POKeMON in the box is one you have met
+  -- whatever the seen table says.
+  C.UNSEEN = "?????"
+
+  function C.seenName(save, data, species)
+    local def = type(data) == "table" and data.pokemon
+      and data.pokemon[species] or nil
+    local name = (def and def.name) or species
+    local dex = type(save) == "table" and save.pokedex or nil
+    if type(dex) ~= "table" then return C.UNSEEN end
+    local seen = (dex.owned and dex.owned[species])
+      or (dex.seen and dex.seen[species])
+    return seen and name or C.UNSEEN
+  end
   C.HEADER_TH = 3
   C.FOOTER_TY = 15
   C.HEADER_TEXT_Y = 8

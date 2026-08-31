@@ -88,7 +88,16 @@ local function fakeGame(seen, owned)
 end
 local function press(key) pressed = { [key] = true } end
 
-local game = fakeGame({}, {})
+-- Everything met.  Every screen this file drives names a POKeMON, and since
+-- 1.10.0 a name is masked until the dex has met it -- so a fixture with an
+-- empty dex would have most of these tests asserting `?????` and testing the
+-- mask instead of the thing they were written for.  The mask has its own
+-- cases, at the end of each section, driven off a fixture that has met
+-- nothing.
+local MET = { FIXMON_A = true, FIXMON_B = true, FIXMON_C = true,
+              FIXMON_D = true, [LONG] = true }
+local game = fakeGame(MET, {})
+local unmet = fakeGame({}, {})
 
 -- ------- what the box says, when nobody has told it anything
 --
@@ -455,8 +464,16 @@ do
   screen:draw()
   eq(painted, 0, "which goes away again")
 
+  -- ...and the press after that opens the map's menu, where it used to close
+  -- the screen.  A on a map you are reading should not mean "put it away":
+  -- B has always done that and still does.  The menu is INSPECT, plus FLY
+  -- when there is somewhere under the cursor to fly to -- which is what A
+  -- does on the map from the BAG and the map FLY opens, so one map answers
+  -- one way however it was opened.
+  local before = #game.stack.states
   screen:update(0)
-  check(popped, "and only THEN does A close it, the way A always did")
+  check(not popped, "the press after that does not close the map either")
+  eq(#game.stack.states, before + 1, "it opens the map's menu over it")
   love.graphics.rectangle = realRect
 end
 
@@ -668,12 +685,22 @@ do
   eq(step(sky, "right"), "VERMILION CITY",
     "with nothing further right, the cursor stays on it")
 
-  -- A is the engine's, and it flies to whatever the cursor is on
+  -- A opens this map's menu, the same one the map from the BAG and the AREA
+  -- map open, and FLY on it goes to whatever the cursor is on.  It used to be
+  -- the press itself; INSPECT wanted the same button.  What the cursor can
+  -- reach is unchanged, so what A can reach is unchanged.
+  game.stack:push(sky)
   press("a")
   sky:update(0)
   pressed = {}
+  local flyRow
+  for _, item in ipairs(game.stack:top().items or {}) do
+    if item.label == "FLY" then flyRow = item end
+  end
+  check(flyRow ~= nil, "A over a fly destination offers the flight")
+  if flyRow then flyRow.onSelect() end
   eq(table.concat(flew, ","), "VERMILION",
-    "and A flies to the town under the cursor rather than to a list position")
+    "and it goes to the town under the cursor rather than to a list position")
 
   -- ---- A on the AREA map, over a town you can fly to, IS a flight
   --
@@ -719,18 +746,36 @@ do
     return screen
   end
 
+  -- A opens the map's menu, and the flight is a row on it.  It used to be the
+  -- press itself; INSPECT wanted the same button, and two things on one
+  -- button need somewhere to choose between them.  Which towns qualify has
+  -- not changed -- only how you say yes.
+  local function rowsOn(stack)
+    local menu = stack:top()
+    local labels, byLabel = {}, {}
+    for _, item in ipairs(menu and menu.items or {}) do
+      labels[#labels + 1] = item.label
+      byLabel[item.label] = item
+    end
+    return table.concat(labels, " "), byLabel
+  end
+
   local sky2 = areaOver("VIRIDIAN CITY")
   press("a")
   sky2:update(0)
   pressed = {}
+  local labels, rows = rowsOn(game.stack)
+  eq(labels, "FLY INSPECT",
+    "A over a flyable town offers the flight rather than taking it")
+  if rows.FLY then rows.FLY.onSelect() end
   eq(table.concat(flownTo, ","), "VIRIDIAN",
-    "A over a flyable town flies there from the AREA map")
+    "and the row flies there from the AREA map")
   eq(game.stack:top(), overworld,
-    "and the screens above the overworld are gone with it")
+    "with the menu, the map and the dex left behind")
 
   -- VERMILION is visited and is a fly town, but has no fly warp -- so the
-  -- engine would not have offered it, and neither does this.  A closes the
-  -- screen instead, which is what A always did.
+  -- engine would not have offered it, and neither does this.  The menu opens
+  -- without a FLY row; it does not close the map, because B does that.
   flownTo = {}
   local noWarp = areaOver("VERMILION CITY")
   local depthBefore = #game.stack.states
@@ -738,8 +783,8 @@ do
   noWarp:update(0)
   pressed = {}
   eq(#flownTo, 0, "a town with no fly warp is not flown to")
-  check(#game.stack.states < depthBefore,
-    "and A closes the screen the way it always did")
+  eq(rowsOn(game.stack), "INSPECT", "and gets a menu with no FLY row on it")
+  check(#game.stack.states > depthBefore, "the map is still under it")
 
   -- ...and with no FLY in the party, nothing flies from anywhere
   flownTo = {}
@@ -749,16 +794,32 @@ do
   noFly:update(0)
   pressed = {}
   eq(#flownTo, 0, "and a party that cannot FLY does not fly")
+  eq(rowsOn(game.stack), "INSPECT", "so there is no row offering to")
   overworld.partyKnows = function(_, move) return move == "FLY" end
 
-  -- the row turns it off, and A goes back to closing
+  -- FLY FROM AREA off takes the row away and leaves the menu
   flownTo = {}
   run.loader.modOptions[run.mod.manifest.id] = { area_fly = false }
   local offScreen = areaOver("VIRIDIAN CITY")
   press("a")
   offScreen:update(0)
   pressed = {}
-  eq(#flownTo, 0, "FLY FROM AREA off leaves A closing the screen")
+  eq(#flownTo, 0, "FLY FROM AREA off does not fly")
+  eq(rowsOn(game.stack), "INSPECT", "and takes the row off the menu")
+  run.loader.modOptions[run.mod.manifest.id] = {}
+
+  -- ...and MAP INSPECT off takes the MENU away, leaving the press the direct
+  -- flight it was before there was anything to choose between.  Neither
+  -- toggle can switch the other off.
+  flownTo = {}
+  run.loader.modOptions[run.mod.manifest.id] = { map_inspect = false }
+  local noMenu = areaOver("VIRIDIAN CITY")
+  press("a")
+  noMenu:update(0)
+  pressed = {}
+  eq(table.concat(flownTo, ","), "VIRIDIAN",
+    "MAP INSPECT off gives the press back to the flight")
+  eq(game.stack:top(), overworld, "which still leaves everything behind")
   run.loader.modOptions[run.mod.manifest.id] = {}
 
   while game.stack:top() do game.stack:pop() end

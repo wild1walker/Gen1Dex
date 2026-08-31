@@ -60,3 +60,16 @@ jobs:
           luajit mods/Gen1Dex/tests/gen1dex_test.lua
           luajit mods/Gen1Dex/tests/area_test.lua
           luajit mods/Gen1Dex/tests/naming_test.lua
+
+      # These four need no engine: they load a module by path and stand its
+      # seams up against stubs, so they run from the mod's own root.  They came
+      # from Gen1WildUI, which carried this code as an overlay while the fixes
+      # were ahead of a release here; the tests belong with the code.
+      - name: The standalone suites
+        working-directory: mod
+        run: |
+          set -euo pipefail
+          luajit tests/dexmask_test.lua
+          luajit tests/inspect_test.lua
+          luajit tests/areamenu_test.lua
+          luajit tests/dexlist_test.lua

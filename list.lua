@@ -188,12 +188,37 @@ return function(mod, DexData, C, Area)
   -- One icon, in colour or blacked out.  `discovered` is the whole rule: a
   -- species you have seen wears its own art and asks for its own colours, one
   -- you have not is a black shape and asks for nothing.
+
+  -- ------- the matte behind true-colour art
+  --
+  -- `PaletteFX.markTrueColor` blits a rectangle RAW so a coloured icon keeps
+  -- its own colours instead of being read as four shades.  Raw means raw: the
+  -- white page under it stays white when everything around it goes black,
+  -- which is the white box behind every icon on a dark screen.
+  --
+  -- So the rectangle is painted with what the theme will make of it BEFORE
+  -- the art goes in.  Only ever inside a rectangle about to be marked -- a
+  -- dark rectangle anywhere else is shade-3 pixels, which the theme maps to
+  -- the page's ink and puts a hole in the page.
+  --
+  -- Under LIGHT the colour is white, which is what this drew before the theme
+  -- existed, so a build with no theme in it is unchanged.
+  local function matte(x, y, w, h)
+    local theme = type(mod.theme) == "function" and mod.theme() or nil
+    local colour = theme and type(theme.matte) == "function"
+      and theme.matte() or nil
+    if type(colour) ~= "table" then return end
+    love.graphics.setColor(colour[1] / 255, colour[2] / 255, colour[3] / 255, 1)
+    love.graphics.rectangle("fill", x, y, w, h)
+  end
+
   local function drawIcon(game, species, x, y, discovered)
     if not species then return end
     if discovered then
+      local rect = fullColour(game, species)
+      if rect then matte(x, y, rect.w, rect.h) end
       C.white()
       pcall(PartyMenu.drawIcon, game, stubFor(species), x, y, false, 0, false)
-      local rect = fullColour(game, species)
       if rect then
         pcall(PaletteFX.markTrueColor, x, y, rect.w, rect.h)
       end

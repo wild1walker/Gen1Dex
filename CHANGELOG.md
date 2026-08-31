@@ -1,5 +1,63 @@
 # Changelog
 
+## 1.10.0
+
+Everything Gen1WildUI carried as an overlay while these fixes were ahead of a
+release here. The bundle shipped them in 1.22.0; this is the same code, in the
+mod that owns it, so a standalone install gets them too.
+
+**`INSPECT`: stand on a place and ask what lives in it.** `A` on a town-map
+location opens a small menu — `INSPECT`, and `FLY` when there is somewhere
+under the cursor to fly to. `INSPECT` lists what lives there, richest share
+first, read off the live encounter tables rather than a table of its own, with
+the same rarity cuts the `AREA` strip uses. `A` on a row opens that POKéMON's
+`AREA` map.
+
+All three maps answer `A` that way now — the one from the `BAG`, the one `FLY`
+opens, and the `AREA` screen. On the `AREA` screen that press used to close the
+map, which is the one thing `A` should not mean on a map you are reading; `B`
+has always closed it and still does, from the menu as well.
+
+`MAP INSPECT` governs the menu and `FLY FROM AREA` governs the row. With
+`MAP INSPECT` off, `A` on the `AREA` map is the direct flight it was before;
+with `FLY FROM AREA` off the menu opens without its `FLY` row. Neither toggle
+can switch the other off.
+
+**The dex stops handing over names you have not earned.** Three places printed
+one:
+
+- The entry screen's evolution rows. A caught BULBASAUR read
+  `EVOLVES / LEVEL 16 / IVYSAUR`, which gives away the next two names of every
+  line in the game.
+- The `AREA` header. `<NAME>'s NEST` was handed back to the engine whenever it
+  fitted, and `TownMap.lua:440` builds that line off the species table raw — so
+  an `AREA` screen opened from the `AREA ON UNSEEN` row for a PIDGEY the dex
+  has never met said `PIDGEY's NEST` across the top of the map. That was the
+  common case, not a corner: looking up where something lives before you have
+  met it is what that row is for.
+- The `AREA` caption. A player who had met a WARTORTLE in the wild and never a
+  SQUIRTLE got `EVOLVE SQUIRTLE / AT LV16` printed under a header that had just
+  refused to name it.
+
+All of them go through one predicate now and print `?????` until you have met
+it. The row still says HOW and WHEN; it is the name that is withheld.
+
+Smaller things:
+
+- The dex list's caught balls sat on the box's border, and so did `INSPECT`'s
+  last row.
+- `INSPECT`'s header ran through its own frame.
+- `INSPECT` never said there was more of the list below. Six rows fill the box
+  exactly, and a seventh was off the bottom with nothing on screen to say so.
+
+### Tests
+
+`area_test.lua` grew the menu contract and a dex that has met something — with
+an empty one, most of that file was asserting `?????` and testing the mask
+rather than the thing each case was written for. Four suites came across with
+the code: `dexmask_test`, `inspect_test`, `areamenu_test`, `dexlist_test`. They
+need no engine and run from the mod's own root.
+
 ## 1.9.0
 
 ### Added

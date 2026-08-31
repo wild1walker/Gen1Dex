@@ -69,7 +69,11 @@
 -- called, and the caption is installed as instance fields over the screen it
 -- built, so the engine's own draw and update run untouched underneath.
 
-return function(mod, C)
+-- `Inspect` is the sibling module, already built by main.lua when this one
+-- is: A over the map opens ITS menu rather than a second one of our own.
+-- Optional -- it is allowed to have failed to build, and this screen still
+-- works without it, with A doing what it did before the menu existed.
+return function(mod, C, Inspect)
   local A = {}
 
   local Font = mod.ui.Font
@@ -250,7 +254,14 @@ return function(mod, C)
     for id, def in pairs(game.data.pokemon or {}) do
       for _, evo in ipairs(def.evolutions or {}) do
         if evo.species == species then
-          local from = (game.data.pokemon[id] or {}).name or id
+          -- Masked, like every other name this screen prints.  A player who
+          -- has met a WARTORTLE in the wild but never a SQUIRTLE is owed the
+          -- shape of the answer -- something evolves into this at level 16 --
+          -- and not the name of a POKeMON they have not met.  The header two
+          -- lines up has said `?????` for exactly this reason since 0.30.1;
+          -- this line was reading the species table raw and printing "EVOLVE
+          -- SQUIRTLE" under a header that would not name it.
+          local from = C.seenName(game.save, game.data, id)
           if evo.method == "TRADE" then
             return { "LINK CABLE", "ON " .. from }
           end
@@ -360,7 +371,8 @@ return function(mod, C)
 
   -- The header.  Two cases, and vanilla measures neither of them.
   --
-  --   <NAME>'s NEST      left alone when it fits, shortened when it does not
+  --   <NAME>'s NEST      left alone when it fits AND names something you have
+  --                      met; ours otherwise
   --   <NAME> UNKNOWN     always ours
   --
   -- The nest line is the engine's and mostly fits, so it is repainted only
@@ -371,18 +383,43 @@ return function(mod, C)
   -- truncated, because the screen the player is standing on is already called
   -- AREA and the word was doing no work: what the line has to carry is WHICH
   -- POKéMON and that nothing is known about it.
+  --
+  -- Returning nil means "the engine's line is already the line we would draw,
+  -- so leave it".  That was true of the nest line for as long as the only
+  -- question was whether it fitted -- and stopped being true the moment the
+  -- name could be masked.  TownMap.lua:440 reads the species table raw:
+  --
+  --     local def = self.game.data.pokemon[self.nestSpecies]
+  --     local name = def and def.name or self.nestSpecies
+  --     Font.draw(name .. "'s NEST", 8, 0)
+  --
+  -- so handing that line back printed "PIDGEY's NEST" over a map opened from
+  -- the AREA ON UNSEEN row for a PIDGEY the dex has never met -- which is the
+  -- COMMON case, because looking up where something lives before you have met
+  -- it is what that row is for.  The no-nests line was masked and the nest
+  -- line was not, and the nest line is the one most species have.
   local function headerFor(screen, species)
-    local def = screen.game.data.pokemon[species]
-    local name = (def and def.name) or species
+    -- Masked, because this screen is reachable for a POKeMON the dex has
+    -- never met -- the AREA ON UNSEEN row, and an evolution the entry screen
+    -- is showing -- and the header was printing the one name the rest of the
+    -- screen is careful not to.
+    local name = C.seenName(screen.game.save, screen.game.data, species)
+    local masked = name == C.UNSEEN
     if #screen.nests > 0 then
       local nest = name .. "'s NEST"
-      if fits(nest, HEADER_COLS) then return nil end
+      -- Only a line we would have drawn identically is worth not drawing.
+      if not masked and fits(nest, HEADER_COLS) then return nil end
       return shorten(nest, HEADER_COLS)
     end
     local unknown = name .. " UNKNOWN"
     if fits(unknown, HEADER_COLS) then return unknown end
     return shorten(name, HEADER_COLS)
   end
+
+  -- Published so a test can ask what this screen would put in its header
+  -- without standing up a map to draw it on: the decision is the part that
+  -- was wrong, and the pixels are the engine's.
+  A.header = headerFor
 
   -- TownMap's own markerXY (src/ui/TownMap.lua:129).  The Kanto art is inset
   -- two tiles across and one down inside the screen, so a location's entry
@@ -611,7 +648,23 @@ return function(mod, C)
       if not (species and type(screen) == "table") then return screen end
       -- read per open rather than once at load, so turning AREA HINTS off in
       -- the manager shows up the next time the screen is opened
-      if not C.option("area_hints", true) then return screen end
+      if not C.option("area_hints", true) then
+        -- ...but the MASK is not part of the hint.  AREA HINTS is about the
+        -- strip under the map, and a player who turned the strip off did not
+        -- ask to be told the name of a POKeMON they have not met -- so the
+        -- header is still repainted here, and only when there is something to
+        -- repaint: an unmasked name that fits is the engine's own line and is
+        -- left exactly as it was, which is the whole of this branch today.
+        local plain = headerFor(screen, species)
+        if plain then
+          local baseOnly = screen.draw or TownMap.draw
+          screen.draw = function(self)
+            baseOnly(self)
+            drawHeader(plain)
+          end
+        end
+        return screen
+      end
       local ok, answer = pcall(A.caption, game, species)
       if not ok then
         mod.log:warn("the AREA caption did not build for %s: %s",
@@ -761,26 +814,24 @@ return function(mod, C)
         if play then play() end
       end
 
-      -- A over a town you can fly to, with the hint down, IS a flight.  With
-      -- the hint up A means "I have read this" and takes the strip down; the
-      -- press after that is this one.
+      -- Where A can fly to from where the cursor is standing, and the
+      -- overworld it would be flying from -- or nil, which is not a failure.
       --
-      -- Every condition is a reason to fall through rather than to fail: no
-      -- FLY in the party, indoors, the cursor on somewhere unflyable, no
-      -- overworld under the screen -- any of them and A closes the screen the
-      -- way it always did.  Nothing here reports an error, because none of
-      -- them is one.
-      local function flyFromHere(self)
-        if not C.option("area_fly", true) then return false end
+      -- Every condition is a reason to have no flight rather than to report
+      -- one: no FLY in the party, indoors, the cursor on somewhere unflyable,
+      -- no overworld under the screen.  Any of them and the FLY row is simply
+      -- not on the menu, the way it is not on the map opened from the BAG.
+      local function flyTargetHere(self)
+        if not C.option("area_fly", true) then return nil end
         local g = self.game or game
         local ow = overworldUnder(g)
-        if not ow then return false end
+        if not ow then return nil end
         if type(ow.partyKnows) ~= "function"
             or type(ow.flyTo) ~= "function" then
-          return false
+          return nil
         end
         local okKnows, knows = pcall(ow.partyKnows, ow, "FLY")
-        if not (okKnows and knows) then return false end
+        if not (okKnows and knows) then return nil end
         -- outdoors only, the same gate the field-move menu uses
         local okMap, Map = pcall(require, "src.world.Map")
         local okDefaults, FieldDefaults = pcall(require, "src.core.FieldDefaults")
@@ -788,25 +839,29 @@ return function(mod, C)
             and ow.map and ow.map.def then
           local okOut, outside = pcall(Map.isOutside, ow.map.def,
             FieldDefaults.field(g.data, "outsideTilesets"))
-          if not (okOut and outside) then return false end
+          if not (okOut and outside) then return nil end
         end
         local targets = flyTargets(g)
-        if not targets then return false end
+        if not targets then return nil end
         local here = self.locs and self.locs[self.sel]
-        if not here then return false end
+        if not here then return nil end
         -- byMap points every map at its town's square, so the cursor's loc is
         -- matched by identity rather than by name: two towns may share a name
         -- in a translated build, and no two share a square.
         local byMap = self.byMap or {}
-        local mapId
         for id, loc in pairs(byMap) do
-          if loc == here and targets[id] then mapId = id break end
+          if loc == here and targets[id] then return id, ow end
         end
-        if not mapId then return false end
+        return nil
+      end
 
-        -- Down to the overworld, then fly.  Popping rather than asking the
-        -- dex to close itself: the screens above are this screen and whatever
-        -- opened it, and the flight is leaving all of them behind.
+      -- Down to the overworld, then fly.  Popping rather than asking the dex
+      -- to close itself: the screens above are the menu, this screen and
+      -- whatever opened it, and the flight is leaving all of them behind.
+      local function flyNow(self, mapId, ow)
+        local g = self.game or game
+        ow = ow or overworldUnder(g)
+        if not ow then return false end
         local stack = g.stack
         local guard = 0
         while stack:top() and stack:top() ~= ow and guard < 16 do
@@ -814,13 +869,55 @@ return function(mod, C)
           guard = guard + 1
         end
         if stack:top() ~= ow then return false end
-        pressSound()
         local okFly = pcall(ow.flyTo, ow, mapId)
         if not okFly then
           mod.log:warn("FLY from the AREA map did not take off for %s",
             tostring(mapId))
         end
         return true
+      end
+
+      -- ------- what A does over the map
+      --
+      -- It opens the map's menu -- INSPECT, and FLY when the cursor is over
+      -- somewhere you can fly to -- which is what A does on the map from the
+      -- BAG and the map FLY opens.  It used to close the screen, and a press
+      -- that closes a map you are reading is the one thing A should not mean
+      -- on it: B has closed it all along and still does, from the menu as
+      -- well, so nothing is taken away to pay for this.
+      --
+      -- INSPECT is the reason this is a menu at all.  The AREA screen already
+      -- says where one POKeMON lives; the cursor is sitting on a town while
+      -- it does, and "what else lives here" is the question a player has with
+      -- the map already open.  Going out to the BAG for the same picture to
+      -- ask it was the screen being pedantic about which door you came in by.
+      --
+      -- With MAP INSPECT off there is no menu to open, and A is the direct
+      -- flight it was before -- so that toggle takes away the menu and not
+      -- the flight, and FLY FROM AREA still takes away the flight and not the
+      -- menu.  Neither can turn the other off.
+      local function pressA(self)
+        local mapId, ow = flyTargetHere(self)
+        if C.option("map_inspect", true)
+            and type(Inspect) == "table"
+            and type(Inspect.offer) == "function" then
+          local extra
+          if mapId then
+            extra = { { label = "FLY", onSelect = function()
+              flyNow(self, mapId, ow)
+            end } }
+          end
+          local ok, opened = pcall(Inspect.offer, self, extra)
+          if not ok then
+            mod.log:warn("the AREA map menu stood down: %s", tostring(opened))
+          elseif opened then
+            return true
+          end
+        end
+        -- No menu: the press is the flight it was, sound and all.
+        if not mapId then return false end
+        pressSound()
+        return flyNow(self, mapId, ow)
       end
 
       screen.update = function(self, dt)
@@ -859,8 +956,9 @@ return function(mod, C)
             self:moveList(input:wasPressed("down") and 1 or -1)
           end
           return baseUpdate(self, dt)
-        elseif input:wasPressed("a") and flyFromHere(self) then
-          -- flown; the screen is gone and the overworld is doing the rest
+        elseif input:wasPressed("a") and pressA(self) then
+          -- the menu is up, or the flight is taken and the overworld is doing
+          -- the rest.  Neither is a press to hand on.
           return
         elseif input:wasPressed("start") then
           -- and START brings it back, because dismissing a hint you have not
