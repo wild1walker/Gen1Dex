@@ -361,6 +361,32 @@ and nothing else that says POKéDEX moves: the SAVE panel still counts your
 
 ---
 
+## On Gold, Silver and Crystal
+
+The dex runs on the Gen 2 carts too, and there it works the way it does on Red:
+by adding to the cart's own #DEX rather than replacing it. Gold's dex is
+already good. What it does not have is the parts this mod exists for.
+
+**Undiscovered POKéMON open.** A row you have not seen is a `-----` on the
+cart, and A does nothing. Here it opens, with the name, the kind, the
+footprint, the cry and the print all masked to dashes — no spoilers anywhere,
+the same rule the Gen 1 dex follows. The picture stays the `?`.
+
+**And their nests show on the map.** The AREA screen works for an undiscovered
+POKéMON too, so you can go and look for it. That is the whole point of being
+allowed to open the page.
+
+**AREA captions.** A caption strip under the map naming what the marks mean —
+morning, day and night grass, water, the fishing groups, headbutt trees, rock
+smash, the swarms, and the roamers, read off the cart's own encounter tables.
+
+**The entry's picture animates**, the way the SUMMARY page's does. Crystal
+carries animation frames for its front sprites; Gold and Silver caches do not,
+so there the line is a no-op and the still is what you get. The cart decides,
+not the generation.
+
+Everything is a row you can switch off, as on Red.
+
 ## Options
 
 In the mod manager:

@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.11.0
+
+- **Runs on Gold, Silver and Crystal.** The manifest declares `gen2`, and the
+  dex works there the way it does on Red: it adds to the cart's own #DEX rather
+  than replacing it. Gold's dex is already good; what it lacks is the parts
+  this mod exists for.
+
+- **An undiscovered POKéMON's page opens.** On the cart a row you have not seen
+  is a `-----` and A does nothing. It opens now, with the name, the kind, the
+  footprint, the cry and the print all masked to dashes — no spoilers anywhere,
+  the same rule the Gen 1 dex follows — and the picture stays the `?`. It fails
+  closed: a mask that will not install draws nothing and sends the view back to
+  the list, rather than showing a name it was supposed to hide.
+
+- **And their nests show on the AREA map**, which is the reason for opening the
+  page at all: you can look up where to find something you have not caught yet.
+
+- **AREA captions.** A caption strip under the map naming what the marks mean —
+  morning, day and night grass, water, the fishing groups, headbutt trees, rock
+  smash, swarms and the roamers — read off the cart's own encounter tables
+  rather than a table kept here.
+
+- **The entry's picture animates**, the way the SUMMARY page's already does.
+  New row: **DEX ANIMATION**. Nothing about the animation is re-implemented —
+  it is the engine's own `MonAnimView`, started on the entry screen. Crystal
+  carries animation frames; Gold and Silver caches carry none, so there every
+  line is a no-op and the still is what you get. The cart decides, not the
+  generation. The listing is deliberately left alone: its pic changes on every
+  cursor step, and an animation there is a picture that never finishes
+  starting.
+
+
 ## 1.10.0
 
 Everything Gen1WildUI carried as an overlay while these fixes were ahead of a
