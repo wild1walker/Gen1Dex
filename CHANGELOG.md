@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.11.2
+
+- **"NOTHING LIVES HERE" no longer runs through the box border.** On an AREA
+  place with no encounters, the line was drawn at the x the mon *names* use —
+  which is one tile in from the box text because a cursor sits in front of it.
+  Eighteen glyphs from there end at x 160, and the last one was drawn straight
+  through the right border, which owns 152 onward.
+
+  It is a message, not a row: there is no cursor beside it and nothing to line
+  it up with, so it goes where the box's other text goes, one tile in at x 8 —
+  where its eighteen glyphs end at 151, the last interior pixel. It is clipped
+  to the same glyph budget the header uses, so a longer translation is cut
+  rather than drawn over the frame.
+
+  The list box already had its row height asserted rather than eyeballed
+  ("does the last row fit" is arithmetic). The width is asserted the same way
+  now, including that the old x would *not* have fitted.
+
 ## 1.11.1
 
 - **A comment no longer fails `modkit validate`.** One line in `dexdata.lua`

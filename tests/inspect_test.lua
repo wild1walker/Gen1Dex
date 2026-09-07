@@ -222,6 +222,28 @@ do
   eq(Inspect.ROW_STEP, 16, "a glyph and a glyph of air, like the game's lists")
 end
 
+io.write("and the line saying so fits the box it is drawn in\n")
+do
+  -- Reported from a screenshot: "NOTHING LIVES HERE" ran through the list
+  -- box's right border, the final E drawn half on top of it.  Same arithmetic
+  -- as the row-height check above, one axis over.
+  --
+  -- The box is the full twenty tiles, so its interior runs x 8..151 and the
+  -- border owns 152 onward.  The line was drawn at NAME_X, which is where a
+  -- mon's NAME goes because a cursor sits at 8 in front of it -- eighteen
+  -- glyphs from 16 end at 160.
+  local glyph = 8
+  local width = #Inspect.EMPTY * glyph
+  ok(Inspect.TEXT_X + width - 1 <= Inspect.LIST_RIGHT,
+    ("%q ends at %d, inside the interior's %d")
+      :format(Inspect.EMPTY, Inspect.TEXT_X + width - 1, Inspect.LIST_RIGHT))
+  ok(Inspect.NAME_X + width - 1 > Inspect.LIST_RIGHT,
+    "and it would NOT have fitted where the rows start, which is the bug")
+  ok(#Inspect.EMPTY <= Inspect.HEAD_GLYPHS,
+    "so the clip never has to cut it")
+  eq(Inspect.TEXT_X, 8, "text sits one tile in, like every other box's")
+end
+
 io.write("a place with nothing in it says so rather than raising\n")
 do
   eq(#Inspect.roster(data, save, { "ROUTE_8_GATE" }), 0, "a gate is empty")
