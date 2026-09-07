@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.11.1
+
+- **A comment no longer fails `modkit validate`.** One line in `dexdata.lua`
+  named the player's ROM-derived cache by its path while explaining where a
+  constants table comes from. MK301 is a substring check over the whole file,
+  so a mod that neither ships nor reads that directory failed validation for
+  mentioning it in prose. The comment says the same thing in words instead.
+
+
 ## 1.11.0
 
 - **Runs on Gold, Silver and Crystal.** The manifest declares `gen2`, and the
