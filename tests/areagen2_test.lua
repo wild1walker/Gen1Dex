@@ -282,6 +282,21 @@ local data = {
                 evolutions = { { method = "EVOLVE_TRADE", into = "GENGAR" } } },
     GENGAR = { name = "GENGAR" },
     DUNSPARCE = { name = "DUNSPARCE" },
+    -- The gift arm resolves a givepoke's RAW ROM BYTE through `def.index`,
+    -- the way src/world/gen2/World.lua does when it hands the POKeMON over.
+    EEVEE = { name = "EEVEE", index = 133 },
+    TOTODILE = { name = "TOTODILE", index = 158 },
+  },
+  -- The script pool as the extractor writes it: keyed by ROM pointer, each a
+  -- list of commands, `givepoke` carrying a species BYTE and a level.
+  gen2Scripts = {
+    ["0x1a:0x6bd1"] = {
+      { op = "writetext", text = "BILL_EEVEE" },
+      { op = "givepoke", species = 133, level = 20, item = 0, trainer = 0 },
+    },
+    ["0x1a:0x7000"] = {
+      { op = "givepoke", species = 158, level = 5, item = 0, trainer = 0 },
+    },
   },
   gen2Encounters = {
     grass = {
@@ -364,6 +379,65 @@ do -- nobody at all
   eq(Area.caption(game, "DUNSPARCE"), nil, "no answer is nil, not a blank string")
   eq(Area.probe(game, "DUNSPARCE"), "NO RECORD REMAINS",
      "and the strip says so rather than drawing an empty bar")
+end
+
+-- ---- given, not found
+--
+-- Reported as two bugs and it is one: "some pokemon like the other starters
+-- aren't showing in the dex search area. So means their data isn't in the
+-- dex?", and "Eevee doesn't show up in the dex as well. Encountered it on
+-- Route 34 ... it said No Area recorded".
+--
+-- Bill's house IS on Route 34, so both reports are the same POKeMON twice:
+-- a GIFT.  The starters and EEVEE are in no wild table and evolve from
+-- nothing, so every reading answered nil and the page fell through to NO
+-- RECORD REMAINS -- which reads as the cartridge having lost the data, when
+-- the truth is that somebody hands it to you.
+
+do
+  eq(Area.caption(game, "EEVEE"), "GIFT Lv20",
+    "a POKeMON somebody gives you says so, at the level they give it")
+  eq(Area.caption(game, "TOTODILE"), "GIFT Lv5",
+    "and so does a starter")
+end
+
+do
+  -- Not a gift and not wild and not an evolution of anything: still nil, so
+  -- the page still says NO RECORD REMAINS.  The arm answers for the POKeMON
+  -- the cart actually hands over and for no others.
+  eq(Area.caption(game, "DUNSPARCE"), nil,
+    "a POKeMON nobody gives and nothing evolves into is still unanswered")
+end
+
+do
+  -- The wild readings come FIRST.  A species that is both given and catchable
+  -- is worth finding in the grass -- the gift is once, the grass is always.
+  local withGift = { data = {}, save = game.save }
+  for key, value in pairs(data) do withGift.data[key] = value end
+  withGift.data.gen2Scripts = {
+    ["0x1a:0x8000"] = {
+      { op = "givepoke", species = 999, level = 3 },
+      -- RATTATA, which Route 29 is full of
+      { op = "givepoke", species = 19, level = 3 },
+    },
+  }
+  withGift.data.pokemon = {}
+  for key, value in pairs(data.pokemon) do withGift.data.pokemon[key] = value end
+  withGift.data.pokemon.RATTATA = { name = "RATTATA", index = 19 }
+  eq(Area.caption(withGift, "RATTATA"), "GRASS Lv2-4 COMMON",
+    "a POKeMON that is both given and wild is reported as wild")
+end
+
+do
+  -- A species byte no POKeMON in the dataset claims is not a gift for
+  -- anybody: an unresolvable index is dropped rather than guessed at.
+  local nobody = { data = {}, save = game.save }
+  for key, value in pairs(data) do nobody.data[key] = value end
+  nobody.data.gen2Scripts = {
+    ["0x1a:0x9000"] = { { op = "givepoke", species = 999, level = 3 } },
+  }
+  eq(Area.caption(nobody, "EEVEE"), nil,
+    "and a byte nothing answers to gives nobody a caption")
 end
 
 do -- providers

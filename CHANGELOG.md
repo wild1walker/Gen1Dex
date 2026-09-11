@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.12.0
+
+- **The AREA page can say GIFT.** Reported as two bugs — "some pokemon like
+  the other starters aren't showing in the dex search area, so their data
+  isn't in the dex?" and "Eevee doesn't show up in the dex either, encountered
+  it on Route 34 … it said No Area recorded" — and it is one. Bill's house is
+  on Route 34, so both are the same thing: a POKéMON somebody **hands** you.
+
+  The data was never missing. The starters and EEVEE are in no wild table and
+  evolve from nothing, so every reading answered nil and the page fell through
+  to NO RECORD REMAINS — which reads as the cartridge having lost the entry,
+  when the truth is the opposite.
+
+  `givepoke` is the cart's own word for it and the extractor keeps it, species
+  and level and all, so the caption is read out of the same bytecode the game
+  runs when it gives you one. The species is a raw ROM byte there, resolved
+  through `def.index` exactly as the engine resolves it when the POKéMON
+  actually changes hands, so a cartridge whose species order is not the
+  vanilla one still answers correctly. Scanned once per dataset, because the
+  caption is built on every frame of the page.
+
+  After every wild reading and before the evolution one: a species that is
+  both given and catchable (DRATINI) is worth finding in the grass.
+
 ## 1.11.2
 
 - **"NOTHING LIVES HERE" no longer runs through the box border.** On an AREA
